@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Vianer Assistant",
+    "slug": "vianer-assistant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "vianerassistant",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": ["expo-router"],
+    "android": {
+      "package": "com.vianerapps.vianerassistant"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3aee064d-6533-4c83-b0b2-0d5336bc0a5b"
+      }
+    },
+    "owner": "vianer-apps"
+  }
+}
