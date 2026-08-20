@@ -6,7 +6,15 @@ on:
     branches:
       - main
     paths:
+      - 'app/**'
+      - 'app.json'
+      - 'eas.json'
+      - 'package.json'
       - '.github/workflows/android-apk.yml'
+
+concurrency:
+  group: android-apk-main
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -14,24 +22,18 @@ jobs:
     steps:
       - name: Checkout current main
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      - name: Verify source versions
-        run: |
-          git rev-parse HEAD
-          cat package.json
-          cat eas.json
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
 
-      - name: Clean install dependencies
-        run: |
-          rm -rf node_modules
-          npm install --legacy-peer-deps
+      - name: Validate Expo project
+        run: npx expo export --platform android --output-dir dist-test
 
       - name: Setup EAS
         run: npm install -g eas-cli
@@ -40,5 +42,3 @@ jobs:
         run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-# Fresh build after EAS dependency fix
