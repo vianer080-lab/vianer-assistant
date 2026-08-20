@@ -21,7 +21,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Verify source versions
         run: |
@@ -31,7 +30,7 @@ jobs:
       - name: Clean install dependencies
         run: |
           rm -rf node_modules
-          npm install
+          npm install --legacy-peer-deps
 
       - name: Setup EAS
         run: npm install -g eas-cli
