@@ -1,12 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Text, View, StatusBar } from 'react-native';
 
 export default function Home() {
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       <Text style={styles.title}>Vianer Assistant</Text>
       <Text style={styles.subtitle}>Основа приложения готова.</Text>
-      <StatusBar style="auto" />
     </View>
   );
 }
