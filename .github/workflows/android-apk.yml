@@ -26,6 +26,7 @@ jobs:
         run: |
           git rev-parse HEAD
           cat package.json
+          cat eas.json
 
       - name: Clean install dependencies
         run: |
@@ -40,4 +41,4 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-# Trigger fresh build from current main
+# Fresh build after EAS dependency fix
