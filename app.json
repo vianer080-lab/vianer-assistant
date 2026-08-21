@@ -8,6 +8,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "plugins": ["expo-router"],
+    "web": {
+      "output": "server",
+      "bundler": "metro"
+    },
     "android": {
       "package": "com.vianerapps.vianerassistant"
     },
