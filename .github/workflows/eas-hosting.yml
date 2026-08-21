@@ -1,0 +1,42 @@
+name: Deploy EAS Hosting
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: eas-hosting-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Expo token
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "EXPO_TOKEN repository secret is required."
+            exit 1
+          fi
+
+      - name: Checkout current main
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Export web app and API routes
+        run: npx expo export --platform web
+
+      - name: Deploy to EAS Hosting production
+        run: eas deploy --prod --non-interactive
