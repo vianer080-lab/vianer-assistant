@@ -1,29 +1,72 @@
-import { StyleSheet, Text, View, StatusBar } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const services = [
+  { title: 'Telegram', subtitle: 'Канал и бот', icon: '✈' },
+  { title: 'Автопостинг', subtitle: 'Публикации и очередь', icon: '↗' },
+  { title: 'Партнёрки', subtitle: 'Amazon, Temu и другие', icon: '₿' },
+  { title: 'Соцсети', subtitle: 'YouTube, Instagram, Pinterest', icon: '◎' },
+  { title: 'Аналитика', subtitle: '1 / 5 / 10 / 30 дней', icon: '▥' },
+  { title: 'Настройки', subtitle: 'Подключения и доступы', icon: '⚙' },
+];
 
 export default function Home() {
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <Text style={styles.title}>Vianer Assistant</Text>
-      <Text style={styles.subtitle}>Основа приложения готова.</Text>
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#101826" />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>MASTER HUB</Text>
+          <Text style={styles.title}>Центр управления</Text>
+          <Text style={styles.subtitle}>Проекты, публикации и статистика в одном приложении.</Text>
+        </View>
+
+        <View style={styles.statusCard}>
+          <View>
+            <Text style={styles.statusLabel}>Система</Text>
+            <Text style={styles.statusValue}>Готова к настройке</Text>
+          </View>
+          <View style={styles.dot} />
+        </View>
+
+        <Text style={styles.sectionTitle}>Разделы</Text>
+        <View style={styles.grid}>
+          {services.map((item) => (
+            <TouchableOpacity key={item.title} style={styles.card} activeOpacity={0.75}>
+              <View style={styles.iconBox}><Text style={styles.icon}>{item.icon}</Text></View>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.nextCard}>
+          <Text style={styles.nextTitle}>Следующий шаг</Text>
+          <Text style={styles.nextText}>Подключить Telegram-бот и канал MasterPick, затем добавить автопостинг с изображениями.</Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 18,
-    textAlign: 'center',
-  },
+  screen: { flex: 1, backgroundColor: '#0b1220' },
+  content: { padding: 20, paddingTop: 28, paddingBottom: 40 },
+  header: { marginBottom: 22 },
+  eyebrow: { color: '#7dd3fc', fontSize: 13, fontWeight: '800', letterSpacing: 2 },
+  title: { color: '#fff', fontSize: 32, fontWeight: '800', marginTop: 6 },
+  subtitle: { color: '#9ca3af', fontSize: 16, lineHeight: 23, marginTop: 8 },
+  statusCard: { backgroundColor: '#111c2e', borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 26, borderWidth: 1, borderColor: '#22304a' },
+  statusLabel: { color: '#8fa3bf', fontSize: 13 },
+  statusValue: { color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 4 },
+  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#22c55e' },
+  sectionTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginBottom: 14 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  card: { width: '48%', minHeight: 150, backgroundColor: '#111c2e', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#22304a' },
+  iconBox: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#1d2a42', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  icon: { color: '#7dd3fc', fontSize: 21, fontWeight: '700' },
+  cardTitle: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  cardSubtitle: { color: '#8796ab', fontSize: 13, lineHeight: 18, marginTop: 5 },
+  nextCard: { marginTop: 10, backgroundColor: '#172554', borderRadius: 18, padding: 18 },
+  nextTitle: { color: '#bfdbfe', fontSize: 14, fontWeight: '800', textTransform: 'uppercase' },
+  nextText: { color: '#fff', fontSize: 16, lineHeight: 23, marginTop: 8 },
 });
