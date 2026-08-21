@@ -5,12 +5,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'app/**'
-      - 'app.json'
-      - 'eas.json'
-      - 'package.json'
-      - '.github/workflows/android-apk.yml'
 
 concurrency:
   group: android-apk-main
