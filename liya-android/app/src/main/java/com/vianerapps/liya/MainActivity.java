@@ -75,7 +75,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         content.addView(button("Назад", v -> runCommand("назад")));
 
         TextView examples = text(
-            "Можно сказать:\n\n«Лия, открой WhatsApp»\n«Открой YouTube»\n«Открой Facebook»\n«Открой Instagram»\n«Открой Temu»\n«Открой AliExpress»\n«Открой MasterPick»\n«Открой аккаунт Google»\n«Найди Безопасность и покажи»\n«Прочитай экран»\n«Нажми Сохранить»\n«Введи текст: ...»",
+            "Можно сказать:\n\n«Лия, открой WhatsApp»\n«Открой YouTube»\n«Открой Facebook»\n«Открой Instagram»\n«Открой Temu»\n«Открой AliExpress»\n«Открой MasterPick»\n«Открой аккаунт Google»\n«Открой мои сохранённые пароли»\n«Найди Безопасность и покажи»\n«Прочитай экран»\n«Нажми Сохранить»\n«Введи текст: ...»",
             20,
             Color.WHITE
         );
