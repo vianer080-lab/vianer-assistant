@@ -158,6 +158,14 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             return;
         }
         String answer = service.executeVoiceCommand(command);
+        if (answer.startsWith("Эту команду я пока не умею")) {
+            status.setText("Советуюсь и смотрю следующий шаг…");
+            service.executeAiCommand(command, result -> {
+                status.setText(result);
+                speak(result);
+            });
+            return;
+        }
         status.setText(answer);
         speak(answer);
     }
