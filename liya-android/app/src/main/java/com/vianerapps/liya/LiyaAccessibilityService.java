@@ -2,6 +2,9 @@ package com.vianerapps.liya;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.Settings;
 import android.graphics.PixelFormat;
 import android.graphics.Color;
 import android.view.Gravity;
@@ -38,6 +41,17 @@ public class LiyaAccessibilityService extends AccessibilityService {
 
     public String executeVoiceCommand(String rawCommand) {
         String command = rawCommand == null ? "" : rawCommand.toLowerCase(new Locale("ru", "RU")).trim();
+        command = command.replaceFirst("^(лия|лили)[, ]+", "");
+
+        String opened = openRequestedApp(command);
+        if (opened != null) return opened;
+
+        String requestedItem = extractRequestedItem(command);
+        if (!requestedItem.isEmpty()) {
+            return clickByText(requestedItem)
+                ? "Нашла «" + requestedItem + "» и открываю на экране."
+                : "На этой странице не вижу пункта «" + requestedItem + "». Скажите: прочитай экран.";
+        }
         if (command.contains("прочитай") || command.contains("что на экране")) {
             String text = collectScreenText();
             return text.isEmpty() ? "На экране нет доступного для чтения текста." : text;
@@ -57,11 +71,104 @@ public class LiyaAccessibilityService extends AccessibilityService {
             return scroll(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) ? "Прокручиваю вверх." : "Здесь не получилось прокрутить вверх.";
         }
 
+        String input = extractInputText(command);
+        if (!input.isEmpty()) {
+            return setTextInFocusedField(input)
+                ? "Ввожу продиктованный текст."
+                : "Сначала откройте поле для текста.";
+        }
+
         String target = extractTarget(command);
         if (!target.isEmpty()) {
             return clickByText(target) ? "Нажимаю «" + target + "»." : "Не нашла на экране кнопку «" + target + "».";
         }
-        return "Эту команду я пока не умею выполнять. Попробуйте сказать: прочитай экран, нажми, прокрути, назад или домой.";
+        return "Эту команду я пока не умею выполнять. Скажите: открой приложение, прочитай экран, нажми, введи текст, прокрути, назад или домой.";
+    }
+
+    private String openRequestedApp(String command) {
+        if (!command.contains("открой") && !command.contains("зайди") && !command.contains("запусти")) return null;
+        if (containsAny(command, "ватсап", "вацап", "whatsapp")) return launch("com.whatsapp", "https://www.whatsapp.com", "WhatsApp");
+        if (containsAny(command, "ютуб", "youtube")) return launch("com.google.android.youtube", "https://www.youtube.com", "YouTube");
+        if (containsAny(command, "фейсбук", "facebook")) return launch("com.facebook.katana", "https://www.facebook.com", "Facebook");
+        if (containsAny(command, "инстаграм", "instagram")) return launch("com.instagram.android", "https://www.instagram.com", "Instagram");
+        if (containsAny(command, "тему", "temu", "тмо")) return launch("com.einnovation.temu", "https://www.temu.com", "Temu");
+        if (containsAny(command, "алиэкспресс", "али экспресс", "aliexpress")) return launch("com.alibaba.aliexpresshd", "https://www.aliexpress.com", "AliExpress");
+        if (containsAny(command, "телеграм", "telegram", "мастер пик", "masterpick")) return launch("org.telegram.messenger", "https://t.me/masterpick_georgia", "MasterPick в Telegram");
+        if (containsAny(command, "стройго", "строиго", "stroigou")) return openUrl("https://stroigou.com/#partners", "StroiGo");
+        if (containsAny(command, "аккаунт google", "аккаунт гугл", "гугл аккаунт", "мой google", "мой гугл")) {
+            return openUrl("https://myaccount.google.com/", "аккаунт Google");
+        }
+        if (containsAny(command, "настройки google", "настройки гугл", "аккаунты телефона")) {
+            Intent intent = new Intent(Settings.ACTION_SYNC_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return "Открываю аккаунты в настройках телефона.";
+        }
+        return null;
+    }
+
+    private String extractRequestedItem(String command) {
+        if (!command.contains("найди")) return "";
+        int start = command.indexOf("найди") + "найди".length();
+        String target = command.substring(start)
+            .replace("пожалуйста", "")
+            .replace("и покажи на экране", "")
+            .replace("и покажи", "")
+            .replace("покажи", "")
+            .trim();
+        return target;
+    }
+
+    private String launch(String packageName, String fallbackUrl, String label) {
+        Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
+        if (intent == null) return openUrl(fallbackUrl, label);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        return "Открываю " + label + ".";
+    }
+
+    private String openUrl(String url, String label) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        return "Открываю " + label + ".";
+    }
+
+    private boolean containsAny(String value, String... variants) {
+        for (String variant : variants) if (value.contains(variant)) return true;
+        return false;
+    }
+
+    private String extractInputText(String command) {
+        String[] prefixes = {"введи текст ", "напиши текст ", "введи ", "напечатай ", "напиши "};
+        for (String prefix : prefixes) {
+            int index = command.indexOf(prefix);
+            if (index >= 0) return command.substring(index + prefix.length()).replaceFirst("^[:—-]+\\s*", "").trim();
+        }
+        return "";
+    }
+
+    private boolean setTextInFocusedField(String value) {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return false;
+        AccessibilityNodeInfo field = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        if (field == null || !field.isEditable()) field = findEditable(root);
+        if (field == null) return false;
+        Bundle arguments = new Bundle();
+        arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value);
+        return field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+    }
+
+    private AccessibilityNodeInfo findEditable(AccessibilityNodeInfo node) {
+        if (node.isEditable()) return node;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) {
+                AccessibilityNodeInfo found = findEditable(child);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private String extractTarget(String command) {
@@ -139,6 +246,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         floatingButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, MainActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            intent.putExtra("listen_now", true);
             startActivity(intent);
         });
 
