@@ -378,3 +378,8 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
         closeTranslators();
         super.onDestroy();
     }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+}
