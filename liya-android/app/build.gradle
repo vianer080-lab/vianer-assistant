@@ -3,6 +3,7 @@ plugins {
 }
 
 def liyaApiUrl = providers.gradleProperty("LIYA_API_URL").orElse("").get()
+def liyaDeviceToken = providers.gradleProperty("LIYA_DEVICE_TOKEN").orElse("").get()
 
 android {
     namespace "com.vianerapps.liya"
@@ -15,6 +16,7 @@ android {
         versionCode 1
         versionName "0.1.0"
         buildConfigField "String", "LIYA_API_URL", "\"${liyaApiUrl}\""
+        buildConfigField "String", "LIYA_DEVICE_TOKEN", "\"${liyaDeviceToken}\""
     }
 
     buildFeatures {
