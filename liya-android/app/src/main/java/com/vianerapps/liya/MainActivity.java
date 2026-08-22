@@ -32,6 +32,14 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         tts = new TextToSpeech(this, this);
         buildLargePrintUi();
         ensureMicrophonePermission();
+        if (getIntent().getBooleanExtra("listen_now", false)) startListening();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent.getBooleanExtra("listen_now", false)) startListening();
     }
 
     private void buildLargePrintUi() {
@@ -58,6 +66,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             speak("Найдите Лию в списке и включите доступ.");
         }));
         content.addView(button("2. Слушать команду", v -> startListening()));
+        content.addView(button("Открыть приложение голосом", v -> startListening()));
         content.addView(button("Перевод разговора рядом", v ->
             startActivity(new Intent(this, NearbyTranslationActivity.class))
         ));
@@ -66,7 +75,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         content.addView(button("Назад", v -> runCommand("назад")));
 
         TextView examples = text(
-            "Можно сказать:\n\n«Прочитай экран»\n«Нажми Сохранить»\n«Прокрути вниз»\n«Назад»\n«Домой»",
+            "Можно сказать:\n\n«Лия, открой WhatsApp»\n«Открой YouTube»\n«Открой Facebook»\n«Открой Instagram»\n«Открой Temu»\n«Открой AliExpress»\n«Открой MasterPick»\n«Открой аккаунт Google»\n«Найди Безопасность и покажи»\n«Прочитай экран»\n«Нажми Сохранить»\n«Введи текст: ...»",
             20,
             Color.WHITE
         );
