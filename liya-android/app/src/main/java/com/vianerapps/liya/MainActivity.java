@@ -58,6 +58,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             speak("Найдите Лию в списке и включите доступ.");
         }));
         content.addView(button("2. Слушать команду", v -> startListening()));
+        content.addView(button("Перевод разговора рядом", v ->
+            startActivity(new Intent(this, NearbyTranslationActivity.class))
+        ));
         content.addView(button("Прочитать текущий экран", v -> runCommand("прочитай экран")));
         content.addView(button("Прокрутить вниз", v -> runCommand("прокрути вниз")));
         content.addView(button("Назад", v -> runCommand("назад")));

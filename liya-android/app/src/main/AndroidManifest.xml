@@ -19,6 +19,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".NearbyTranslationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".LiyaAccessibilityService"
             android:exported="true"
