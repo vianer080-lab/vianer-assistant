@@ -9,6 +9,7 @@ import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -49,6 +50,7 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
     private String sourceLocale = "ka-GE";
     private Locale sellerVoiceLocale = Locale.forLanguageTag("ka-GE");
     private int listeningMode = 0;
+    private String detectedLanguageTag;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,6 +109,10 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
     }
 
     private void selectLanguage(String language, String recognizerLocale, Locale voiceLocale, String label) {
+        configureLanguage(language, recognizerLocale, voiceLocale, label, null);
+    }
+
+    private void configureLanguage(String language, String recognizerLocale, Locale voiceLocale, String label, Runnable afterReady) {
         closeTranslators();
         sourceLanguage = language;
         sourceLocale = recognizerLocale;
@@ -128,7 +134,10 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
         DownloadConditions conditions = new DownloadConditions.Builder().build();
         sellerToRussian.downloadModelIfNeeded(conditions)
             .addOnSuccessListener(v -> russianToSeller.downloadModelIfNeeded(conditions)
-                .addOnSuccessListener(done -> status.setText("Готово. Нажмите, кого слушать."))
+                .addOnSuccessListener(done -> {
+                    status.setText("Готово. Нажмите, кого слушать.");
+                    if (afterReady != null) afterReady.run();
+                })
                 .addOnFailureListener(e -> status.setText("Не удалось загрузить модель. Проверьте интернет.")))
             .addOnFailureListener(e -> status.setText("Не удалось загрузить модель. Проверьте интернет."));
     }
@@ -143,6 +152,7 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
             return;
         }
         listeningMode = mode;
+        detectedLanguageTag = null;
         if (recognizer != null) recognizer.destroy();
         recognizer = SpeechRecognizer.createSpeechRecognizer(this);
         recognizer.setRecognitionListener(new RecognitionListener() {
@@ -154,13 +164,22 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
             public void onError(int error) { status.setText("Не расслышала. Нажмите кнопку и повторите."); }
             public void onPartialResults(Bundle partialResults) { }
             public void onEvent(int eventType, Bundle params) { }
+            @Override
+            public void onLanguageDetection(Bundle results) {
+                if (Build.VERSION.SDK_INT >= 34) {
+                    String detected = results.getString(SpeechRecognizer.DETECTED_LANGUAGE);
+                    if (detected != null) detectedLanguageTag = detected;
+                }
+            }
             public void onResults(Bundle results) {
                 ArrayList<String> values = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (values == null || values.isEmpty()) {
                     status.setText("Речь не распознана.");
                     return;
                 }
-                translate(values.get(0), mode);
+                String heard = values.get(0);
+                if (mode == MODE_SELLER && applyDetectedLanguage(heard)) return;
+                translate(heard, mode);
             }
         });
 
@@ -168,7 +187,35 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, mode == MODE_SELLER ? sourceLocale : "ru-RU");
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+        if (mode == MODE_SELLER && Build.VERSION.SDK_INT >= 34) {
+            ArrayList<String> allowedLanguages = new ArrayList<>();
+            allowedLanguages.add("ka-GE");
+            allowedLanguages.add("en-US");
+            allowedLanguages.add("it-IT");
+            intent.putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, true);
+            intent.putStringArrayListExtra(RecognizerIntent.EXTRA_LANGUAGE_DETECTION_ALLOWED_LANGUAGES, allowedLanguages);
+            intent.putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_SWITCH, RecognizerIntent.LANGUAGE_SWITCH_BALANCED);
+            intent.putStringArrayListExtra(RecognizerIntent.EXTRA_LANGUAGE_SWITCH_ALLOWED_LANGUAGES, allowedLanguages);
+        }
         recognizer.startListening(intent);
+    }
+
+    private boolean applyDetectedLanguage(String heard) {
+        if (detectedLanguageTag == null) return false;
+        String tag = detectedLanguageTag.toLowerCase(Locale.ROOT);
+        if (tag.startsWith("ka") && !sourceLocale.startsWith("ka")) {
+            configureLanguage(TranslateLanguage.GEORGIAN, "ka-GE", Locale.forLanguageTag("ka-GE"), "Грузинский", () -> translate(heard, MODE_SELLER));
+            return true;
+        }
+        if (tag.startsWith("en") && !sourceLocale.startsWith("en")) {
+            configureLanguage(TranslateLanguage.ENGLISH, "en-US", Locale.US, "English", () -> translate(heard, MODE_SELLER));
+            return true;
+        }
+        if (tag.startsWith("it") && !sourceLocale.startsWith("it")) {
+            configureLanguage(TranslateLanguage.ITALIAN, "it-IT", Locale.ITALIAN, "Italiano", () -> translate(heard, MODE_SELLER));
+            return true;
+        }
+        return false;
     }
 
     private void translate(String heard, int mode) {
