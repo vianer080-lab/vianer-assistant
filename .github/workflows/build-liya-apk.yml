@@ -29,7 +29,10 @@ jobs:
           gradle-version: "8.9"
       - name: Build debug APK
         working-directory: liya-android
-        run: gradle --no-daemon :app:assembleDebug
+        run: >-
+          gradle --no-daemon :app:assembleDebug
+          -PLIYA_API_URL="${{ secrets.LIYA_API_URL }}"
+          -PLIYA_DEVICE_TOKEN="${{ secrets.LIYA_DEVICE_TOKEN }}"
       - uses: actions/upload-artifact@v4
         with:
           name: liya-android-apk

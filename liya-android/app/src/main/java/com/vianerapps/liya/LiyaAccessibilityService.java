@@ -16,6 +16,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 public class LiyaAccessibilityService extends AccessibilityService {
     private static LiyaAccessibilityService instance;
@@ -83,6 +84,37 @@ public class LiyaAccessibilityService extends AccessibilityService {
             return clickByText(target) ? "Нажимаю «" + target + "»." : "Не нашла на экране кнопку «" + target + "».";
         }
         return "Эту команду я пока не умею выполнять. Скажите: открой приложение, прочитай экран, нажми, введи текст, прокрути, назад или домой.";
+    }
+
+    public void executeAiCommand(String command, Consumer<String> callback) {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        String packageName = root != null && root.getPackageName() != null ? root.getPackageName().toString() : "";
+        if (isSensitiveScreen(packageName)) {
+            callback.accept("На экране пароли или защита аккаунта. Здесь я ничего не передаю и жду ваших команд.");
+            return;
+        }
+        LiyaAiClient.request(command, packageName, collectScreenText(), action -> callback.accept(executeAiAction(action)), callback);
+    }
+
+    private String executeAiAction(LiyaAiClient.Action action) {
+        switch (action.name) {
+            case "click": return clickByText(action.target) ? action.explanation : "Не нашла кнопку «" + action.target + "».";
+            case "type": return setTextInFocusedField(action.text) ? action.explanation : "Не вижу активного поля для текста.";
+            case "scroll_down": scroll(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); return action.explanation;
+            case "scroll_up": scroll(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD); return action.explanation;
+            case "back": performGlobalAction(GLOBAL_ACTION_BACK); return action.explanation;
+            case "home": performGlobalAction(GLOBAL_ACTION_HOME); return action.explanation;
+            case "ask_confirmation": return "Нужно ваше подтверждение: " + action.explanation;
+            case "done": return action.explanation;
+            default: return action.text.isEmpty() ? action.explanation : action.text;
+        }
+    }
+
+    private boolean isSensitiveScreen(String packageName) {
+        String text = collectScreenText().toLowerCase(Locale.ROOT);
+        return text.contains("парол") || text.contains("password") || text.contains("pin-код") || text.contains("пин-код")
+            || text.contains("номер карты") || text.contains("card number") || text.contains("одноразовый код")
+            || packageName.contains("credentialmanager");
     }
 
     private String openRequestedApp(String command) {
