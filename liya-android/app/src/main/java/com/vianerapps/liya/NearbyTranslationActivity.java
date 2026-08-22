@@ -46,11 +46,13 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
     private Button georgianButton;
     private Button englishButton;
     private Button italianButton;
+    private Button outputModeButton;
     private String sourceLanguage = TranslateLanguage.GEORGIAN;
     private String sourceLocale = "ka-GE";
     private Locale sellerVoiceLocale = Locale.forLanguageTag("ka-GE");
     private int listeningMode = 0;
     private String detectedLanguageTag;
+    private boolean soundOutput = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +88,9 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
         content.addView(georgianButton);
         content.addView(englishButton);
         content.addView(italianButton);
+
+        outputModeButton = secondaryButton("Перевод: ЗВУКОМ", v -> toggleOutputMode());
+        content.addView(outputModeButton);
 
         status = text("Подготавливаю переводчик…", 19, Color.rgb(125, 211, 252));
         status.setPadding(0, dp(10), 0, dp(14));
@@ -225,8 +230,12 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
             .addOnSuccessListener(result -> {
                 translation.setText("Перевод:\n" + result);
                 status.setText("Перевод готов.");
-                if (mode == MODE_SELLER) speakInHeadphones(result);
-                else speakToSeller(result);
+                if (soundOutput) {
+                    if (mode == MODE_SELLER) speakInHeadphones(result);
+                    else speakToSeller(result);
+                } else {
+                    status.setText("Перевод показан крупным текстом.");
+                }
             })
             .addOnFailureListener(e -> status.setText("Перевод не выполнен. Проверьте загрузку языка."));
     }
@@ -287,6 +296,14 @@ public class NearbyTranslationActivity extends Activity implements TextToSpeech.
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 20);
         }
+    }
+
+    private void toggleOutputMode() {
+        soundOutput = !soundOutput;
+        outputModeButton.setText(soundOutput ? "Перевод: ЗВУКОМ" : "Перевод: ТЕКСТОМ");
+        status.setText(soundOutput
+            ? "Звуковой перевод включён. Текст тоже останется на экране."
+            : "Звук выключен. Перевод будет показан крупным текстом.");
     }
 
     private void highlightLanguage(String selected) {
