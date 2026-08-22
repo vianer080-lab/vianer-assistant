@@ -67,6 +67,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }));
         content.addView(button("2. Слушать команду", v -> startListening()));
         content.addView(button("Открыть приложение голосом", v -> startListening()));
+        content.addView(button("Лия на весь экран", v -> {
+            Intent full = new Intent(this, FullscreenLiyaActivity.class);
+            full.putExtra("listen_now", true);
+            startActivity(full);
+        }));
         content.addView(button("Перевод разговора рядом", v ->
             startActivity(new Intent(this, NearbyTranslationActivity.class))
         ));

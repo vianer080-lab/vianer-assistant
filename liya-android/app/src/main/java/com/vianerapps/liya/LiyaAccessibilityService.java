@@ -55,6 +55,16 @@ public class LiyaAccessibilityService extends AccessibilityService {
             stopAiTask();
             return "Остановилась. Больше ничего не нажимаю.";
         }
+        if (command.contains("на весь экран") || command.contains("покажись полностью")) {
+            Intent full = new Intent(this, FullscreenLiyaActivity.class);
+            full.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(full);
+            return "Открываюсь на весь экран.";
+        }
+        if (command.contains("свернись") || command.contains("маленький режим")) {
+            sendBroadcast(new Intent(FullscreenLiyaActivity.ACTION_CLOSE).setPackage(getPackageName()));
+            return "Сворачиваюсь в маленькую кнопку.";
+        }
 
         String opened = openRequestedApp(command);
         if (opened != null) return opened;
