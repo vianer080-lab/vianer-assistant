@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Лия</string>
+    <string name="accessibility_description">Читает экран и выполняет голосовые команды пользователя со слабым зрением.</string>
+</resources>

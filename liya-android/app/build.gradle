@@ -1,0 +1,29 @@
+plugins {
+    id "com.android.application"
+}
+
+def liyaApiUrl = providers.gradleProperty("LIYA_API_URL").orElse("").get()
+
+android {
+    namespace "com.vianerapps.liya"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.vianerapps.liya"
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName "0.1.0"
+        buildConfigField "String", "LIYA_API_URL", "\"${liyaApiUrl}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
