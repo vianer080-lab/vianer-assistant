@@ -1,0 +1,172 @@
+package com.vianerapps.liya;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.Locale;
+
+public class MainActivity extends Activity implements TextToSpeech.OnInitListener {
+    private TextToSpeech tts;
+    private SpeechRecognizer recognizer;
+    private TextView status;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        tts = new TextToSpeech(this, this);
+        buildLargePrintUi();
+        ensureMicrophonePermission();
+    }
+
+    private void buildLargePrintUi() {
+        int pad = dp(22);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(pad, pad, pad, pad);
+        content.setBackgroundColor(Color.rgb(8, 17, 31));
+
+        TextView title = text("ЛИЯ", 38, Color.WHITE);
+        title.setTypeface(null, 1);
+        content.addView(title);
+
+        TextView subtitle = text("Голосовая помощница для управления телефоном", 21, Color.rgb(186, 205, 230));
+        subtitle.setPadding(0, dp(8), 0, dp(22));
+        content.addView(subtitle);
+
+        status = text("Сначала включите доступ к экрану.", 20, Color.rgb(125, 211, 252));
+        status.setPadding(0, 0, 0, dp(18));
+        content.addView(status);
+
+        content.addView(button("1. Включить управление экраном", v -> {
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            speak("Найдите Лию в списке и включите доступ.");
+        }));
+        content.addView(button("2. Слушать команду", v -> startListening()));
+        content.addView(button("Прочитать текущий экран", v -> runCommand("прочитай экран")));
+        content.addView(button("Прокрутить вниз", v -> runCommand("прокрути вниз")));
+        content.addView(button("Назад", v -> runCommand("назад")));
+
+        TextView examples = text(
+            "Можно сказать:\n\n«Прочитай экран»\n«Нажми Сохранить»\n«Прокрути вниз»\n«Назад»\n«Домой»",
+            20,
+            Color.WHITE
+        );
+        examples.setPadding(0, dp(22), 0, dp(30));
+        content.addView(examples);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(content);
+        setContentView(scroll);
+    }
+
+    private Button button(String label, View.OnClickListener listener) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setTextSize(20);
+        button.setAllCaps(false);
+        button.setTextColor(Color.WHITE);
+        button.setBackgroundColor(Color.rgb(37, 99, 235));
+        button.setPadding(dp(14), dp(14), dp(14), dp(14));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(68));
+        lp.setMargins(0, 0, 0, dp(14));
+        button.setLayoutParams(lp);
+        button.setOnClickListener(listener);
+        return button;
+    }
+
+    private TextView text(String value, int size, int color) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(color);
+        return view;
+    }
+
+    private void ensureMicrophonePermission() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 10);
+        }
+    }
+
+    private void startListening() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            speak("На телефоне недоступно распознавание речи.");
+            return;
+        }
+        if (recognizer != null) recognizer.destroy();
+        recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        recognizer.setRecognitionListener(new RecognitionListener() {
+            public void onReadyForSpeech(Bundle params) { status.setText("Слушаю…"); }
+            public void onBeginningOfSpeech() { status.setText("Говорите команду"); }
+            public void onRmsChanged(float rmsdB) { }
+            public void onBufferReceived(byte[] buffer) { }
+            public void onEndOfSpeech() { status.setText("Выполняю…"); }
+            public void onError(int error) { status.setText("Не расслышала. Нажмите ещё раз."); }
+            public void onPartialResults(Bundle partialResults) { }
+            public void onEvent(int eventType, Bundle params) { }
+            public void onResults(Bundle results) {
+                ArrayList<String> heard = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (heard == null || heard.isEmpty()) {
+                    status.setText("Команда не распознана");
+                    return;
+                }
+                String command = heard.get(0);
+                status.setText("Вы сказали: " + command);
+                runCommand(command);
+            }
+        });
+
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        recognizer.startListening(intent);
+    }
+
+    private void runCommand(String command) {
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service == null) {
+            speak("Сначала включите Лию в специальных возможностях телефона.");
+            return;
+        }
+        String answer = service.executeVoiceCommand(command);
+        status.setText(answer);
+        speak(answer);
+    }
+
+    public void speak(String text) {
+        if (tts != null) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "liya");
+    }
+
+    @Override
+    public void onInit(int statusCode) {
+        if (statusCode == TextToSpeech.SUCCESS) tts.setLanguage(new Locale("ru", "RU"));
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (recognizer != null) recognizer.destroy();
+        if (tts != null) tts.shutdown();
+        super.onDestroy();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+}
