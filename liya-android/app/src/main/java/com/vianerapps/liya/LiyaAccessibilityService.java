@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.graphics.PixelFormat;
 import android.graphics.Color;
@@ -22,6 +24,11 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private static LiyaAccessibilityService instance;
     private WindowManager windowManager;
     private TextView floatingButton;
+    private final Handler aiHandler = new Handler(Looper.getMainLooper());
+    private boolean aiCancelled;
+    private String activeAiTask = "";
+    private int aiStep;
+    private static final int MAX_AI_STEPS = 10;
 
     public static LiyaAccessibilityService getInstance() {
         return instance;
@@ -43,6 +50,11 @@ public class LiyaAccessibilityService extends AccessibilityService {
     public String executeVoiceCommand(String rawCommand) {
         String command = rawCommand == null ? "" : rawCommand.toLowerCase(new Locale("ru", "RU")).trim();
         command = command.replaceFirst("^(лия|лили)[, ]+", "");
+
+        if (command.equals("стоп") || command.contains("остановись") || command.contains("прекрати")) {
+            stopAiTask();
+            return "Остановилась. Больше ничего не нажимаю.";
+        }
 
         String opened = openRequestedApp(command);
         if (opened != null) return opened;
@@ -87,13 +99,52 @@ public class LiyaAccessibilityService extends AccessibilityService {
     }
 
     public void executeAiCommand(String command, Consumer<String> callback) {
+        aiCancelled = false;
+        activeAiTask = command;
+        aiStep = 0;
+        requestNextAiStep(callback);
+    }
+
+    private void requestNextAiStep(Consumer<String> callback) {
+        if (aiCancelled) {
+            callback.accept("Задача остановлена.");
+            return;
+        }
+        if (aiStep >= MAX_AI_STEPS) {
+            activeAiTask = "";
+            callback.accept("Я выполнила десять шагов и остановилась для проверки результата.");
+            return;
+        }
         AccessibilityNodeInfo root = getRootInActiveWindow();
         String packageName = root != null && root.getPackageName() != null ? root.getPackageName().toString() : "";
         if (isSensitiveScreen(packageName)) {
+            activeAiTask = "";
             callback.accept("На экране пароли или защита аккаунта. Здесь я ничего не передаю и жду ваших команд.");
             return;
         }
-        LiyaAiClient.request(command, packageName, collectScreenText(), action -> callback.accept(executeAiAction(action)), callback);
+        aiStep++;
+        LiyaAiClient.request(activeAiTask, packageName, collectScreenText(), action -> {
+            String result = executeAiAction(action);
+            if (isTerminalAiAction(action.name) || aiCancelled) {
+                activeAiTask = "";
+                callback.accept(result);
+                return;
+            }
+            aiHandler.postDelayed(() -> requestNextAiStep(callback), 1400);
+        }, error -> {
+            activeAiTask = "";
+            callback.accept(error);
+        });
+    }
+
+    private boolean isTerminalAiAction(String action) {
+        return "done".equals(action) || "ask_confirmation".equals(action) || "speak".equals(action);
+    }
+
+    private void stopAiTask() {
+        aiCancelled = true;
+        activeAiTask = "";
+        aiHandler.removeCallbacksAndMessages(null);
     }
 
     private String executeAiAction(LiyaAiClient.Action action) {
@@ -299,6 +350,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        stopAiTask();
         if (floatingButton != null && windowManager != null) windowManager.removeView(floatingButton);
         floatingButton = null;
         instance = null;
