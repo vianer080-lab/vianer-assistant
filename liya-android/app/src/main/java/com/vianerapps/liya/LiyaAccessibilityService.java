@@ -86,6 +86,9 @@ public class LiyaAccessibilityService extends AccessibilityService {
     }
 
     private String openRequestedApp(String command) {
+        if (containsAny(command, "мои пароли", "сохраненные пароли", "сохранённые пароли", "менеджер паролей", "google password")) {
+            return openUrl("https://passwords.google.com/", "сохранённые пароли Google");
+        }
         if (!command.contains("открой") && !command.contains("зайди") && !command.contains("запусти")) return null;
         if (containsAny(command, "ватсап", "вацап", "whatsapp")) return launch("com.whatsapp", "https://www.whatsapp.com", "WhatsApp");
         if (containsAny(command, "ютуб", "youtube")) return launch("com.google.android.youtube", "https://www.youtube.com", "YouTube");
