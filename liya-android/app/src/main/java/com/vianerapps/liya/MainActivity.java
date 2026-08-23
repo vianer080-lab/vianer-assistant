@@ -2,6 +2,7 @@ package com.vianerapps.liya;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -14,6 +15,7 @@ import android.speech.tts.TextToSpeech;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -67,6 +69,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             speak("Найдите Лию в списке и включите доступ.");
         }));
         content.addView(button("2. Включить постоянный голос", v -> startPersistentAssistant()));
+        content.addView(button(LiyaRemoteClient.isPaired(this) ? "Vianer Assistant подключён" : "Подключить Vianer Assistant", v -> showPairingDialog()));
         content.addView(button("Разовая голосовая команда", v -> startListening()));
         content.addView(button("Лия на весь экран", v -> {
             Intent full = new Intent(this, FullscreenLiyaActivity.class);
@@ -94,6 +97,22 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         ScrollView scroll = new ScrollView(this);
         scroll.addView(content);
         setContentView(scroll);
+    }
+
+    private void showPairingDialog() {
+        if (LiyaRemoteClient.isPaired(this)) {
+            status.setText("Связь с Vianer Assistant уже настроена.");
+            return;
+        }
+        EditText input = new EditText(this);
+        input.setHint("6-значный код");
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        new AlertDialog.Builder(this).setTitle("Подключение к Vianer Assistant").setView(input)
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Подключить", (dialog, which) -> {
+                status.setText("Подключаю…");
+                LiyaRemoteClient.pair(this, input.getText().toString().trim(), result -> { status.setText(result); speak(result); });
+            }).show();
     }
 
     private void startPersistentAssistant() {
