@@ -182,17 +182,25 @@ public class LiyaAccessibilityService extends AccessibilityService {
         if (containsAny(command, "мои пароли", "сохраненные пароли", "сохранённые пароли", "менеджер паролей", "google password")) {
             return openUrl("https://passwords.google.com/", "сохранённые пароли Google");
         }
+        String googleQuery = extractGoogleQuery(command);
+        if (!googleQuery.isEmpty()) {
+            return openUrl("https://www.google.com/search?q=" + Uri.encode(googleQuery), "результаты поиска Google");
+        }
         if (!command.contains("открой") && !command.contains("зайди") && !command.contains("запусти")) return null;
-        if (containsAny(command, "ватсап", "вацап", "whatsapp")) return launch("com.whatsapp", "https://www.whatsapp.com", "WhatsApp");
+        if (containsAny(command, "ватсап бизнес", "whatsapp business")) return launchFirst(new String[]{"com.whatsapp.w4b", "com.whatsapp"}, "https://www.whatsapp.com/business/", "WhatsApp Business");
+        if (containsAny(command, "ватсап", "вацап", "whatsapp")) return launchFirst(new String[]{"com.whatsapp", "com.whatsapp.w4b"}, "https://www.whatsapp.com", "WhatsApp");
         if (containsAny(command, "ютуб", "youtube")) return launch("com.google.android.youtube", "https://www.youtube.com", "YouTube");
         if (containsAny(command, "фейсбук", "facebook")) return launch("com.facebook.katana", "https://www.facebook.com", "Facebook");
         if (containsAny(command, "инстаграм", "instagram")) return launch("com.instagram.android", "https://www.instagram.com", "Instagram");
         if (containsAny(command, "тему", "temu", "тмо")) return launch("com.einnovation.temu", "https://www.temu.com", "Temu");
         if (containsAny(command, "алиэкспресс", "али экспресс", "aliexpress")) return launch("com.alibaba.aliexpresshd", "https://www.aliexpress.com", "AliExpress");
-        if (containsAny(command, "телеграм", "telegram", "мастер пик", "masterpick")) return launch("org.telegram.messenger", "https://t.me/masterpick_georgia", "MasterPick в Telegram");
+        if (containsAny(command, "телеграм", "telegram", "мастер пик", "masterpick")) return launchFirst(new String[]{"org.telegram.messenger", "org.telegram.messenger.web", "org.thunderdog.challegram"}, containsAny(command, "мастер пик", "masterpick") ? "https://t.me/masterpick_georgia" : "tg://resolve", containsAny(command, "мастер пик", "masterpick") ? "MasterPick в Telegram" : "Telegram");
         if (containsAny(command, "стройго", "строиго", "stroigou")) return openUrl("https://stroigou.com/#partners", "StroiGo");
         if (containsAny(command, "аккаунт google", "аккаунт гугл", "гугл аккаунт", "мой google", "мой гугл")) {
             return openUrl("https://myaccount.google.com/", "аккаунт Google");
+        }
+        if (containsAny(command, "google", "гугл", "chrome", "хром", "браузер")) {
+            return launchFirst(new String[]{"com.android.chrome", "com.google.android.googlequicksearchbox"}, "https://www.google.com/", "Google");
         }
         if (containsAny(command, "настройки google", "настройки гугл", "аккаунты телефона")) {
             Intent intent = new Intent(Settings.ACTION_SYNC_SETTINGS);
@@ -201,6 +209,15 @@ public class LiyaAccessibilityService extends AccessibilityService {
             return "Открываю аккаунты в настройках телефона.";
         }
         return null;
+    }
+
+    private String extractGoogleQuery(String command) {
+        String[] prefixes = {"найди в google ", "найди в гугле ", "поищи в google ", "поищи в гугле ", "google найди ", "гугл найди ", "поиск в google ", "поиск в гугле "};
+        for (String prefix : prefixes) {
+            int index = command.indexOf(prefix);
+            if (index >= 0) return command.substring(index + prefix.length()).trim();
+        }
+        return "";
     }
 
     private String extractRequestedItem(String command) {
@@ -221,6 +238,18 @@ public class LiyaAccessibilityService extends AccessibilityService {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
         return "Открываю " + label + ".";
+    }
+
+    private String launchFirst(String[] packageNames, String fallbackUrl, String label) {
+        for (String packageName : packageNames) {
+            Intent intent = getPackageManager().getLaunchIntentForPackage(packageName);
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                return "Открываю " + label + ".";
+            }
+        }
+        return openUrl(fallbackUrl, label);
     }
 
     private String openUrl(String url, String label) {
