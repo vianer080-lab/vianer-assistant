@@ -66,8 +66,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
             speak("Найдите Лию в списке и включите доступ.");
         }));
-        content.addView(button("2. Слушать команду", v -> startListening()));
-        content.addView(button("Открыть приложение голосом", v -> startListening()));
+        content.addView(button("2. Включить постоянный голос", v -> startPersistentAssistant()));
+        content.addView(button("Разовая голосовая команда", v -> startListening()));
         content.addView(button("Лия на весь экран", v -> {
             Intent full = new Intent(this, FullscreenLiyaActivity.class);
             full.putExtra("listen_now", true);
@@ -94,6 +94,23 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         ScrollView scroll = new ScrollView(this);
         scroll.addView(content);
         setContentView(scroll);
+    }
+
+    private void startPersistentAssistant() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            status.setText("Разрешите Лии доступ к микрофону.");
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 10);
+            return;
+        }
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service == null) {
+            status.setText("Сначала включите Лию в специальных возможностях.");
+            speak("Сначала включите Лию в специальных возможностях телефона.");
+            return;
+        }
+        String answer = service.startContinuousVoice();
+        status.setText(answer);
+        speak(answer);
     }
 
     private Button button(String label, View.OnClickListener listener) {
