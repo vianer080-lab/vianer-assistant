@@ -32,7 +32,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        tts = new TextToSpeech(this, this);
+        tts = new TextToSpeech(this, this, LiyaVoice.GOOGLE_ENGINE);
         buildLargePrintUi();
         ensureMicrophonePermission();
         if (getIntent().getBooleanExtra("listen_now", false)) startListening();
