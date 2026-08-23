@@ -1,7 +1,7 @@
 package com.vianerapps.liya;
 
 import android.app.Activity;
-import android.app.BiometricPrompt;
+import android.hardware.biometrics.BiometricPrompt;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
