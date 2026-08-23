@@ -1,6 +1,14 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 
+export function cleanOAuthValue(value, kind) {
+  const text = String(value || '').trim();
+  const prefix = kind === 'client'
+    ? /^(client(?:\s*id)?|oauth\s*client(?:\s*id)?|идентификатор\s*клиента)\s*:\s*/i
+    : /^(client\s*secret|secret|секрет(?:ный\s*ключ)?)\s*:\s*/i;
+  return text.replace(prefix, '').trim();
+}
+
 function bytesToBase64Url(bytes) {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -16,17 +24,18 @@ async function hmac(value, secret) {
 }
 
 export async function createOAuthState() {
-  const secret = process.env.YOUTUBE_CLIENT_SECRET;
+  const secret = cleanOAuthValue(process.env.YOUTUBE_CLIENT_SECRET, 'secret');
   const payload = `${Date.now()}.${crypto.randomUUID()}`;
   return `${payload}.${await hmac(payload, secret)}`;
 }
 
 export async function isValidOAuthState(state) {
-  if (!state || !process.env.YOUTUBE_CLIENT_SECRET) return false;
+  const secret = cleanOAuthValue(process.env.YOUTUBE_CLIENT_SECRET, 'secret');
+  if (!state || !secret) return false;
   const parts = state.split('.');
   if (parts.length !== 3 || Date.now() - Number(parts[0]) > 10 * 60 * 1000) return false;
   const payload = `${parts[0]}.${parts[1]}`;
-  const expected = await hmac(payload, process.env.YOUTUBE_CLIENT_SECRET);
+  const expected = await hmac(payload, secret);
   if (expected.length !== parts[2].length) return false;
   let difference = 0;
   for (let i = 0; i < expected.length; i += 1) difference |= expected.charCodeAt(i) ^ parts[2].charCodeAt(i);
@@ -57,4 +66,3 @@ export async function storeOAuth(token, metadata) {
   });
   return response.ok && (await response.json()) === true;
 }
-
