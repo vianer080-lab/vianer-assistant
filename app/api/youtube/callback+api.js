@@ -1,5 +1,5 @@
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-import { isValidOAuthState, storeOAuth } from './_shared';
+import { cleanOAuthValue, isValidOAuthState, storeOAuth } from './_shared';
 
 export async function GET(request) {
   const url = new URL(request.url);
@@ -18,8 +18,8 @@ export async function GET(request) {
     return new Response('Invalid or expired OAuth state.', { status: 400 });
   }
 
-  const clientId = process.env.YOUTUBE_CLIENT_ID;
-  const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+  const clientId = cleanOAuthValue(process.env.YOUTUBE_CLIENT_ID, 'client');
+  const clientSecret = cleanOAuthValue(process.env.YOUTUBE_CLIENT_SECRET, 'secret');
   const redirectUri = process.env.YOUTUBE_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
