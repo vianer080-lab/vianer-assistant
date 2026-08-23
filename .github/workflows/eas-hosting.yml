@@ -2,6 +2,11 @@ name: Deploy EAS Hosting
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/api/**"
+      - ".github/workflows/eas-hosting.yml"
 
 concurrency:
   group: eas-hosting-production
@@ -35,8 +40,20 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Sync protected server environment
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LIYA_DEVICE_TOKEN: ${{ secrets.LIYA_DEVICE_TOKEN }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ] || [ -z "$LIYA_DEVICE_TOKEN" ]; then
+            echo "OPENAI_API_KEY and LIYA_DEVICE_TOKEN repository secrets are required."
+            exit 1
+          fi
+          eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility secret --force --non-interactive
+          eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility secret --force --non-interactive
+
       - name: Export web app and API routes
         run: npx expo export --platform web
 
       - name: Deploy to EAS Hosting production
-        run: eas deploy --prod --non-interactive
+        run: eas deploy --prod --environment production --non-interactive
