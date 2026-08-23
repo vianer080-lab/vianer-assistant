@@ -59,7 +59,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         // The service stays active without covering other apps with a floating button.
         backgroundTts = new TextToSpeech(this, result -> {
             if (result == TextToSpeech.SUCCESS) LiyaVoice.configure(backgroundTts);
-        });
+        }, LiyaVoice.GOOGLE_ENGINE);
         aiHandler.post(remotePoll);
         aiHandler.postDelayed(() -> {
             if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED && offlineVoice == null) {
@@ -102,6 +102,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         }
         continuousVoice = true;
         if (offlineVoice == null) { offlineVoice = new LiyaOfflineVoice(this, this::handleBackgroundCommand, this::speakOfflineState); offlineVoice.start(); }
+        offlineVoice.setActive(true);
         return "Локальный голос запускается без системных сигналов.";
     }
 
@@ -109,7 +110,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
 
     public void stopContinuousVoice() {
         continuousVoice = false;
-        aiHandler.removeCallbacksAndMessages(null);
+        // Keep remote task polling alive when only voice mode is stopped.
         if (backgroundRecognizer != null) {
             backgroundRecognizer.cancel();
             backgroundRecognizer.destroy();
