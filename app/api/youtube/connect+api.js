@@ -1,7 +1,7 @@
-import { createOAuthState } from './_shared';
+import { cleanOAuthValue, createOAuthState } from './_shared';
 
 export async function GET() {
-  const clientId = process.env.YOUTUBE_CLIENT_ID;
+  const clientId = cleanOAuthValue(process.env.YOUTUBE_CLIENT_ID, 'client');
   const redirectUri = process.env.YOUTUBE_REDIRECT_URI;
   if (!clientId || !redirectUri || !process.env.YOUTUBE_CLIENT_SECRET) {
     return new Response('YouTube OAuth server configuration is incomplete.', { status: 503 });
@@ -19,4 +19,3 @@ export async function GET() {
   });
   return Response.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`, 302);
 }
-
