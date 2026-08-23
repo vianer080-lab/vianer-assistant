@@ -438,7 +438,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
     @Override
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
-            tts.setLanguage(new Locale("ru", "RU"));
+            LiyaVoice.configure(tts);
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String utteranceId) { }
                 @Override public void onError(String utteranceId) {
