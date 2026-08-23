@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 public class MainActivity extends Activity implements TextToSpeech.OnInitListener {
+    private static final int SYSTEM_SPEECH = 502;
     private TextToSpeech tts;
     private SpeechRecognizer recognizer;
     private TextView status;
@@ -142,7 +143,10 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             public void onRmsChanged(float rmsdB) { }
             public void onBufferReceived(byte[] buffer) { }
             public void onEndOfSpeech() { status.setText("Выполняю…"); }
-            public void onError(int error) { status.setText(speechError(error)); }
+            public void onError(int error) {
+                status.setText(speechError(error));
+                if (error == 11) openSystemSpeechDialog();
+            }
             public void onPartialResults(Bundle partialResults) { }
             public void onEvent(int eventType, Bundle params) { }
             public void onResults(Bundle results) {
@@ -167,6 +171,24 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         recognizer.startListening(intent);
     }
 
+    private void openSystemSpeechDialog() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Говорите с Лией");
+        try { startActivityForResult(intent, SYSTEM_SPEECH); }
+        catch (Exception error) { status.setText("Не запустилась служба распознавания речи."); }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SYSTEM_SPEECH && resultCode == RESULT_OK && data != null) {
+            ArrayList<String> heard = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (heard != null && !heard.isEmpty()) runCommand(heard.get(0));
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -182,6 +204,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "Нет связи со службой распознавания речи.";
         if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "Микрофон занят. Нажмите ещё раз.";
         if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "Не расслышала. Говорите после надписи «Слушаю».";
+        if (error == 11) return "Переключаюсь на совместимое распознавание…";
         return "Ошибка распознавания " + error + ". Нажмите ещё раз.";
     }
 
