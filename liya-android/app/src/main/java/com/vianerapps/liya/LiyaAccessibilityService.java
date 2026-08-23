@@ -39,6 +39,13 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private TextToSpeech backgroundTts;
     private boolean continuousVoice;
     private boolean restartingVoice;
+    private boolean remoteTaskRunning;
+    private final Runnable remotePoll = new Runnable() {
+        @Override public void run() {
+            if (!remoteTaskRunning) LiyaRemoteClient.poll(LiyaAccessibilityService.this, LiyaAccessibilityService.this::runRemoteTask);
+            aiHandler.postDelayed(this, 8000);
+        }
+    };
 
     public static LiyaAccessibilityService getInstance() {
         return instance;
@@ -52,6 +59,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         backgroundTts = new TextToSpeech(this, result -> {
             if (result == TextToSpeech.SUCCESS) LiyaVoice.configure(backgroundTts);
         });
+        aiHandler.post(remotePoll);
     }
 
     @Override
@@ -59,6 +67,22 @@ public class LiyaAccessibilityService extends AccessibilityService {
 
     @Override
     public void onInterrupt() { }
+
+    private void runRemoteTask(LiyaRemoteClient.Task task) {
+        if (remoteTaskRunning) return;
+        remoteTaskRunning = true;
+        String answer = executeVoiceCommand(task.instruction);
+        if (answer.startsWith("Эту команду я пока не умею")) {
+            executeAiCommand(task.instruction, result -> finishRemoteTask(task.id, result));
+        } else finishRemoteTask(task.id, answer);
+    }
+
+    private void finishRemoteTask(long taskId, String result) {
+        String status = result.toLowerCase(Locale.ROOT).contains("подтвержден") || result.toLowerCase(Locale.ROOT).contains("подтверждение") ? "needs_confirmation" : "completed";
+        LiyaRemoteClient.report(this, taskId, status, result);
+        speakBackground(result, continuousVoice);
+        remoteTaskRunning = false;
+    }
 
     public String startContinuousVoice() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
