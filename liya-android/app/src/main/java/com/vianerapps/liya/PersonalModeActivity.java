@@ -45,6 +45,7 @@ import java.util.Locale;
 import java.util.concurrent.Executor;
 
 public class PersonalModeActivity extends Activity implements TextToSpeech.OnInitListener {
+    private static PersonalModeActivity visibleInstance;
     private static final String PREFS = "liya_personal_private";
     private static final String PIN_HASH = "pin_hash";
     private static final int PERSONAL_SYSTEM_SPEECH = 501;
@@ -211,8 +212,23 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         setContentView(root);
 
         personalAutoListening = true;
-        danceHandler.postDelayed(this::startPersonalListening, 500);
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service != null) {
+            selection.setText(service.startContinuousVoice());
+        } else {
+            selection.setText("Включите управление экраном Лии");
+        }
     }
+
+    public static boolean dispatchOfflineVoiceCommand(String command) {
+        PersonalModeActivity activity = visibleInstance;
+        if (activity == null || !activity.unlocked) return false;
+        activity.runOnUiThread(() -> activity.handlePersonalCommand(command));
+        return true;
+    }
+
+    @Override protected void onResume() { super.onResume(); visibleInstance = this; }
+    @Override protected void onPause() { if (visibleInstance == this) visibleInstance = null; super.onPause(); }
 
     private int imageForOutfit(int value) {
         switch (value) {
@@ -428,10 +444,12 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
 
     private void showAndSpeakPersonal(String value) {
         if (selection != null) selection.setText(value);
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service != null) service.setOfflineVoiceMuted(true);
         if (tts != null) {
             tts.speak(value, TextToSpeech.QUEUE_FLUSH, null, "liya_personal");
-        } else if (personalAutoListening) {
-            danceHandler.postDelayed(this::startPersonalListening, 1200);
+        } else if (service != null) {
+            service.setOfflineVoiceMuted(false);
         }
     }
 
@@ -442,10 +460,12 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String utteranceId) { }
                 @Override public void onError(String utteranceId) {
-                    if (personalAutoListening) runOnUiThread(() -> danceHandler.postDelayed(PersonalModeActivity.this::startPersonalListening, 500));
+                    LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+                    if (service != null) service.setOfflineVoiceMuted(false);
                 }
                 @Override public void onDone(String utteranceId) {
-                    if (personalAutoListening) runOnUiThread(() -> danceHandler.postDelayed(PersonalModeActivity.this::startPersonalListening, 400));
+                    LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+                    if (service != null) service.setOfflineVoiceMuted(false);
                 }
             });
         }
