@@ -125,6 +125,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void startListening() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            status.setText("Разрешите Лии доступ к микрофону.");
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 10);
+            return;
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             speak("На телефоне недоступно распознавание речи.");
             return;
@@ -137,7 +142,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             public void onRmsChanged(float rmsdB) { }
             public void onBufferReceived(byte[] buffer) { }
             public void onEndOfSpeech() { status.setText("Выполняю…"); }
-            public void onError(int error) { status.setText("Не расслышала. Нажмите ещё раз."); }
+            public void onError(int error) { status.setText(speechError(error)); }
             public void onPartialResults(Bundle partialResults) { }
             public void onEvent(int eventType, Bundle params) { }
             public void onResults(Bundle results) {
@@ -156,7 +161,28 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false);
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
         recognizer.startListening(intent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 10) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) startListening();
+            else status.setText("Без разрешения микрофона голосовые команды не работают.");
+        }
+    }
+
+    private String speechError(int error) {
+        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) return "Нет разрешения на микрофон.";
+        if (error == SpeechRecognizer.ERROR_AUDIO) return "Микрофон занят другим приложением. Повторите.";
+        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "Нет связи со службой распознавания речи.";
+        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "Микрофон занят. Нажмите ещё раз.";
+        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "Не расслышала. Говорите после надписи «Слушаю».";
+        return "Ошибка распознавания " + error + ". Нажмите ещё раз.";
     }
 
     private void runCommand(String command) {
