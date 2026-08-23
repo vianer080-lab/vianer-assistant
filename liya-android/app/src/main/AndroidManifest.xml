@@ -9,12 +9,16 @@
             <action android:name="android.speech.RecognitionService" />
         </intent>
         <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
         <package android:name="com.google.android.youtube" />
         <package android:name="com.facebook.katana" />
         <package android:name="com.instagram.android" />
         <package android:name="com.einnovation.temu" />
         <package android:name="com.alibaba.aliexpresshd" />
         <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.messenger.web" />
+        <package android:name="org.thunderdog.challegram" />
+        <package android:name="com.google.android.googlequicksearchbox" />
         <package android:name="com.android.chrome" />
         <package android:name="com.google.android.gms" />
     </queries>
