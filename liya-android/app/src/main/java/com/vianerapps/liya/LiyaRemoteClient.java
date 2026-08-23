@@ -66,7 +66,7 @@ final class LiyaRemoteClient {
         HttpURLConnection connection = (HttpURLConnection) new URL(ENDPOINT).openConnection();
         connection.setRequestMethod("POST"); connection.setConnectTimeout(12000); connection.setReadTimeout(20000);
         connection.setRequestProperty("Content-Type", "application/json");
-        if (!token.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + token);
+        if (!token.isEmpty()) connection.setRequestProperty("X-Liya-Token", token);
         connection.setDoOutput(true);
         try (OutputStream out = connection.getOutputStream()) { out.write(body.toString().getBytes(StandardCharsets.UTF_8)); }
         BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getResponseCode() < 400 ? connection.getInputStream() : connection.getErrorStream(), StandardCharsets.UTF_8));
