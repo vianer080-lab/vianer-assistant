@@ -49,7 +49,8 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         root.setBackgroundColor(Color.rgb(3, 9, 21));
 
         liya = new ImageView(this);
-        liya.setImageResource(R.drawable.liya_fullscreen);
+        // Reuse the verified personal portrait; the old fullscreen PNG was damaged.
+        liya.setImageResource(R.drawable.liya_personal_1);
         liya.setScaleType(ImageView.ScaleType.CENTER_CROP);
         root.addView(liya, new FrameLayout.LayoutParams(-1, -1));
 
@@ -109,7 +110,7 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
             public void onRmsChanged(float rmsdB) { liya.setAlpha(Math.min(1f, .88f + Math.max(0, rmsdB) / 80f)); }
             public void onBufferReceived(byte[] buffer) { }
             public void onEndOfSpeech() { setState("ДУМАЮ…", 1f); }
-            public void onError(int error) { setState("НЕ РАССЛЫШАЛА", 1f); }
+            public void onError(int error) { setState(speechError(error), 1f); }
             public void onPartialResults(Bundle partialResults) { }
             public void onEvent(int eventType, Bundle params) { }
             public void onResults(Bundle results) {
@@ -121,7 +122,29 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false);
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
         recognizer.startListening(intent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 30) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) startListening();
+            else setState("НУЖЕН ДОСТУП К МИКРОФОНУ", 1f);
+        }
+    }
+
+    private String speechError(int error) {
+        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) return "НЕТ ДОСТУПА К МИКРОФОНУ";
+        if (error == SpeechRecognizer.ERROR_AUDIO) return "МИКРОФОН ЗАНЯТ";
+        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "НЕТ СВЯЗИ С РАСПОЗНАВАНИЕМ";
+        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "МИКРОФОН ЗАНЯТ — ПОВТОРИТЕ";
+        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "ГОВОРИТЕ ПОСЛЕ СЛОВА «СЛУШАЮ»";
+        return "ОШИБКА ГОЛОСА " + error;
     }
 
     private void runCommand(String command) {
