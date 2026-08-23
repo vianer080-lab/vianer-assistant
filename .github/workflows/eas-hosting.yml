@@ -18,6 +18,9 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       LIYA_DEVICE_TOKEN: ${{ secrets.LIYA_DEVICE_TOKEN }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REDIRECT_URI: https://vianer-assistant.expo.app/api/youtube/callback
     steps:
       - name: Check required secrets
         run: |
@@ -47,8 +50,16 @@ jobs:
         run: |
           eas env:delete production --variable-name OPENAI_API_KEY --scope project --non-interactive || true
           eas env:delete production --variable-name LIYA_DEVICE_TOKEN --scope project --non-interactive || true
+          eas env:delete production --variable-name YOUTUBE_CLIENT_ID --scope project --non-interactive || true
+          eas env:delete production --variable-name YOUTUBE_CLIENT_SECRET --scope project --non-interactive || true
+          eas env:delete production --variable-name YOUTUBE_REDIRECT_URI --scope project --non-interactive || true
           eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility sensitive --non-interactive
           eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility sensitive --non-interactive
+          if [ -n "$YOUTUBE_CLIENT_ID" ] && [ -n "$YOUTUBE_CLIENT_SECRET" ]; then
+            eas env:set --name YOUTUBE_CLIENT_ID --value "$YOUTUBE_CLIENT_ID" --environment production --visibility sensitive --non-interactive
+            eas env:set --name YOUTUBE_CLIENT_SECRET --value "$YOUTUBE_CLIENT_SECRET" --environment production --visibility sensitive --non-interactive
+            eas env:set --name YOUTUBE_REDIRECT_URI --value "$YOUTUBE_REDIRECT_URI" --environment production --visibility plain-text --non-interactive
+          fi
 
       - name: Export web app and API routes
         run: npx expo export --platform web
