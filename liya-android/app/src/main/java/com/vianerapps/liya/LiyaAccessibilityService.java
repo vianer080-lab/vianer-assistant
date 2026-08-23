@@ -68,6 +68,10 @@ public class LiyaAccessibilityService extends AccessibilityService {
     @Override
     public void onInterrupt() { }
 
+    public void syncRemoteNow() {
+        if (!remoteTaskRunning) LiyaRemoteClient.poll(this, this::runRemoteTask);
+    }
+
     private void runRemoteTask(LiyaRemoteClient.Task task) {
         if (remoteTaskRunning) return;
         remoteTaskRunning = true;
