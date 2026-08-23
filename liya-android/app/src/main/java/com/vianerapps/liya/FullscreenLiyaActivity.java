@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnInitListener {
+    private static final int SYSTEM_SPEECH = 503;
     public static final String ACTION_CLOSE = "com.vianerapps.liya.CLOSE_FULLSCREEN";
     private TextToSpeech tts;
     private SpeechRecognizer recognizer;
@@ -110,7 +111,10 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
             public void onRmsChanged(float rmsdB) { liya.setAlpha(Math.min(1f, .88f + Math.max(0, rmsdB) / 80f)); }
             public void onBufferReceived(byte[] buffer) { }
             public void onEndOfSpeech() { setState("ДУМАЮ…", 1f); }
-            public void onError(int error) { setState(speechError(error), 1f); }
+            public void onError(int error) {
+                setState(speechError(error), 1f);
+                if (error == 11) openSystemSpeechDialog();
+            }
             public void onPartialResults(Bundle partialResults) { }
             public void onEvent(int eventType, Bundle params) { }
             public void onResults(Bundle results) {
@@ -129,6 +133,24 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         recognizer.startListening(intent);
     }
 
+    private void openSystemSpeechDialog() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Говорите с Лией");
+        try { startActivityForResult(intent, SYSTEM_SPEECH); }
+        catch (Exception error) { showAndSpeak("Не запустилась служба распознавания речи."); }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SYSTEM_SPEECH && resultCode == RESULT_OK && data != null) {
+            ArrayList<String> heard = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (heard != null && !heard.isEmpty()) runCommand(heard.get(0));
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -144,6 +166,7 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "НЕТ СВЯЗИ С РАСПОЗНАВАНИЕМ";
         if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "МИКРОФОН ЗАНЯТ — ПОВТОРИТЕ";
         if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "ГОВОРИТЕ ПОСЛЕ СЛОВА «СЛУШАЮ»";
+        if (error == 11) return "ПЕРЕКЛЮЧАЮ РАСПОЗНАВАНИЕ…";
         return "ОШИБКА ГОЛОСА " + error;
     }
 
