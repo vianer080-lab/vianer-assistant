@@ -3,7 +3,7 @@ const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const schema = {
   type: 'object',
   properties: {
-    action: { type: 'string', enum: ['click', 'type', 'scroll_down', 'scroll_up', 'back', 'home', 'speak', 'ask_confirmation', 'done'] },
+    action: { type: 'string', enum: ['click', 'type', 'scroll_down', 'scroll_up', 'back', 'home', 'speak', 'ask_confirmation', 'done', 'personal_dance_1', 'personal_dance_2', 'personal_dance_3', 'personal_dance_4', 'personal_dance_5', 'personal_stop', 'personal_faster', 'personal_slower', 'personal_next_outfit', 'personal_next_hair', 'personal_remember'] },
     target: { type: 'string' },
     text: { type: 'string' },
     explanation: { type: 'string' },
@@ -38,7 +38,8 @@ export async function POST(request) {
       model: 'gpt-5.6-luna',
       max_output_tokens: 500,
       instructions: `You control an Android accessibility assistant for a visually impaired Russian-speaking user.
-Return exactly one next UI action. Never request, reveal, type, copy, or transmit passwords, PINs, payment card data, recovery codes, or one-time codes.
+Return exactly one next action. Never request, reveal, type, copy, or transmit passwords, PINs, payment card data, recovery codes, or one-time codes.
+If packageName is com.vianerapps.liya.personal, understand the user's natural Russian request and select exactly one personal_* action supported by the capability description in screen. Use speak only when the request needs clarification. Do not produce sexual or explicit actions.
 Use ask_confirmation before sending/publishing content, deleting data, purchases/payments, changing account security, granting permissions, or sharing personal data.
 Prefer clicking exact visible text. If the task is complete, use done. Explain briefly in Russian.`,
       input: `Команда пользователя: ${String(body.command).slice(0, 1000)}\nПриложение: ${String(body.packageName || '').slice(0, 200)}\nЭкран:\n${String(body.screen).slice(0, 7000)}`,
