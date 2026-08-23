@@ -61,6 +61,13 @@ public class LiyaAccessibilityService extends AccessibilityService {
             if (result == TextToSpeech.SUCCESS) LiyaVoice.configure(backgroundTts);
         });
         aiHandler.post(remotePoll);
+        aiHandler.postDelayed(() -> {
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED && offlineVoice == null) {
+                continuousVoice = true;
+                offlineVoice = new LiyaOfflineVoice(this, this::handleBackgroundCommand, value -> { });
+                offlineVoice.start();
+            }
+        }, 1200);
     }
 
     @Override
