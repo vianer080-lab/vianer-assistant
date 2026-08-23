@@ -114,6 +114,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             + "\nVianer Assistant: " + (LiyaRemoteClient.isPaired(this) ? "подключён" : "нужно подключить")
             + "\n\nПриложения:\n" + apps;
         status.setText(report);
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service != null && LiyaRemoteClient.isPaired(this)) service.syncRemoteNow();
         speak(microphone && screen ? "Основные разрешения готовы." : "Не все разрешения включены. Посмотрите отчёт на экране.");
     }
 
