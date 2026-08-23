@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.Set;
 
 final class LiyaVoice {
+    static final String GOOGLE_ENGINE = "com.google.android.tts";
     private LiyaVoice() { }
 
     static void configure(TextToSpeech tts) {
@@ -24,10 +25,13 @@ final class LiyaVoice {
             if (voice.getLocale() == null || !"ru".equals(voice.getLocale().getLanguage())) continue;
             String name = voice.getName().toLowerCase(Locale.ROOT);
             int score = 10;
-            if (!voice.isNetworkConnectionRequired()) score += 4;
+            // Google's higher quality network Russian voices sound substantially
+            // more natural than the single Samsung fallback voice.
+            if (voice.isNetworkConnectionRequired()) score += 6;
             boolean female = name.contains("female") || name.contains("жен") || name.contains("alena")
                 || name.contains("milena") || name.contains("svetlana") || name.contains("irina")
-                || name.contains("-ruf-") || name.contains("-dfc-");
+                || name.contains("-ruf-") || name.contains("-dfc-")
+                || name.contains("ru-ru-x-dfc") || name.contains("ru-ru-x-ruf");
             boolean male = (name.contains("male") && !name.contains("female")) || name.contains("муж");
             if (female) score += 30;
             if (male) score -= 30;
