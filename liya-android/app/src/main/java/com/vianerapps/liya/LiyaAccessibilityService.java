@@ -1,12 +1,18 @@
 package com.vianerapps.liya;
 
+import android.Manifest;
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
 import android.graphics.PixelFormat;
 import android.graphics.Color;
 import android.view.Gravity;
@@ -29,6 +35,10 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private String activeAiTask = "";
     private int aiStep;
     private static final int MAX_AI_STEPS = 10;
+    private SpeechRecognizer backgroundRecognizer;
+    private TextToSpeech backgroundTts;
+    private boolean continuousVoice;
+    private boolean restartingVoice;
 
     public static LiyaAccessibilityService getInstance() {
         return instance;
@@ -39,6 +49,9 @@ public class LiyaAccessibilityService extends AccessibilityService {
         super.onServiceConnected();
         instance = this;
         // The service stays active without covering other apps with a floating button.
+        backgroundTts = new TextToSpeech(this, result -> {
+            if (result == TextToSpeech.SUCCESS) backgroundTts.setLanguage(new Locale("ru", "RU"));
+        });
     }
 
     @Override
@@ -46,6 +59,89 @@ public class LiyaAccessibilityService extends AccessibilityService {
 
     @Override
     public void onInterrupt() { }
+
+    public String startContinuousVoice() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            return "Сначала разрешите Лии доступ к микрофону.";
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            return "На телефоне недоступно распознавание речи.";
+        }
+        continuousVoice = true;
+        listenInBackground();
+        return "Я остаюсь активной. Можете открывать приложения и продолжать говорить со мной.";
+    }
+
+    public void stopContinuousVoice() {
+        continuousVoice = false;
+        aiHandler.removeCallbacksAndMessages(null);
+        if (backgroundRecognizer != null) {
+            backgroundRecognizer.cancel();
+            backgroundRecognizer.destroy();
+            backgroundRecognizer = null;
+        }
+    }
+
+    private void listenInBackground() {
+        if (!continuousVoice || restartingVoice) return;
+        restartingVoice = true;
+        aiHandler.postDelayed(() -> {
+            restartingVoice = false;
+            if (!continuousVoice) return;
+            if (backgroundRecognizer != null) backgroundRecognizer.destroy();
+            backgroundRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            backgroundRecognizer.setRecognitionListener(new RecognitionListener() {
+                public void onReadyForSpeech(Bundle params) { }
+                public void onBeginningOfSpeech() { }
+                public void onRmsChanged(float rmsdB) { }
+                public void onBufferReceived(byte[] buffer) { }
+                public void onEndOfSpeech() { }
+                public void onPartialResults(Bundle results) { }
+                public void onEvent(int type, Bundle params) { }
+                public void onError(int error) {
+                    if (!continuousVoice) return;
+                    long delay = error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1600 : 700;
+                    aiHandler.postDelayed(LiyaAccessibilityService.this::listenInBackground, delay);
+                }
+                public void onResults(Bundle results) {
+                    ArrayList<String> heard = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    if (heard == null || heard.isEmpty()) { listenInBackground(); return; }
+                    handleBackgroundCommand(heard.get(0));
+                }
+            });
+            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+            intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false);
+            try { backgroundRecognizer.startListening(intent); }
+            catch (Exception error) { aiHandler.postDelayed(this::listenInBackground, 1200); }
+        }, 250);
+    }
+
+    private void handleBackgroundCommand(String command) {
+        String lower = command.toLowerCase(Locale.ROOT);
+        if (lower.contains("перестань слушать") || lower.contains("выключи голос")) {
+            continuousVoice = false;
+            speakBackground("Голосовое управление выключено.", false);
+            return;
+        }
+        String answer = executeVoiceCommand(command);
+        if (answer.startsWith("Эту команду я пока не умею")) {
+            executeAiCommand(command, result -> speakBackground(result, true));
+        } else {
+            speakBackground(answer, true);
+        }
+    }
+
+    private void speakBackground(String text, boolean resume) {
+        if (backgroundTts != null) backgroundTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "liya_background");
+        if (resume && continuousVoice) {
+            long delay = Math.max(1400, Math.min(5500, text.length() * 55L));
+            aiHandler.postDelayed(this::listenInBackground, delay);
+        }
+    }
 
     public String executeVoiceCommand(String rawCommand) {
         String command = rawCommand == null ? "" : rawCommand.toLowerCase(new Locale("ru", "RU")).trim();
@@ -390,6 +486,8 @@ public class LiyaAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         stopAiTask();
+        stopContinuousVoice();
+        if (backgroundTts != null) backgroundTts.shutdown();
         if (floatingButton != null && windowManager != null) windowManager.removeView(floatingButton);
         floatingButton = null;
         instance = null;
