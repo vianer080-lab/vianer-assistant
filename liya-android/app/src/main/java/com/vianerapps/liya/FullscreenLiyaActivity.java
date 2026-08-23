@@ -191,7 +191,7 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         liya.animate().scaleX(scale).scaleY(scale).alpha(1f).setDuration(240).start();
     }
 
-    @Override public void onInit(int result) { if (result == TextToSpeech.SUCCESS) tts.setLanguage(new Locale("ru", "RU")); }
+    @Override public void onInit(int result) { if (result == TextToSpeech.SUCCESS) LiyaVoice.configure(tts); }
 
     @Override
     protected void onDestroy() {
