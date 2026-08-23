@@ -50,7 +50,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         instance = this;
         // The service stays active without covering other apps with a floating button.
         backgroundTts = new TextToSpeech(this, result -> {
-            if (result == TextToSpeech.SUCCESS) backgroundTts.setLanguage(new Locale("ru", "RU"));
+            if (result == TextToSpeech.SUCCESS) LiyaVoice.configure(backgroundTts);
         });
     }
 
