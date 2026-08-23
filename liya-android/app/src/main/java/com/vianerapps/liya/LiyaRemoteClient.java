@@ -46,7 +46,7 @@ final class LiyaRemoteClient {
         if (token.isEmpty()) return;
         new Thread(() -> {
             try {
-                JSONObject response = post(new JSONObject().put("action", "poll"), token);
+                JSONObject response = post(new JSONObject().put("action", "poll").put("device_token", token), token);
                 JSONObject task = response.optJSONObject("task");
                 if (task != null) MAIN.post(() -> callback.accept(new Task(task.optLong("id"), task.optString("instruction"))));
             } catch (Exception ignored) { }
@@ -57,7 +57,7 @@ final class LiyaRemoteClient {
         String token = prefs(context).getString(TOKEN, "");
         if (token.isEmpty()) return;
         new Thread(() -> {
-            try { post(new JSONObject().put("action", "report").put("task_id", taskId).put("status", status).put("result", result), token); }
+            try { post(new JSONObject().put("action", "report").put("device_token", token).put("task_id", taskId).put("status", status).put("result", result), token); }
             catch (Exception ignored) { }
         }).start();
     }
