@@ -34,7 +34,10 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private boolean aiCancelled;
     private String activeAiTask = "";
     private int aiStep;
-    private static final int MAX_AI_STEPS = 10;
+    private static final int MAX_AI_STEPS = 24;
+    private String previousAiScreen = "";
+    private String lastAiResult = "";
+    private int unchangedAiSteps;
     private SpeechRecognizer backgroundRecognizer;
     private TextToSpeech backgroundTts;
     private boolean continuousVoice;
@@ -246,6 +249,9 @@ public class LiyaAccessibilityService extends AccessibilityService {
         aiCancelled = false;
         activeAiTask = command;
         aiStep = 0;
+        previousAiScreen = "";
+        lastAiResult = "Начало задачи";
+        unchangedAiSteps = 0;
         requestNextAiStep(callback);
     }
 
@@ -256,7 +262,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         }
         if (aiStep >= MAX_AI_STEPS) {
             activeAiTask = "";
-            callback.accept("Я выполнила десять шагов и остановилась для проверки результата.");
+            callback.accept("Я выполнила много шагов, но не смогла надёжно завершить задачу. Остановилась, чтобы не нажать лишнее.");
             return;
         }
         AccessibilityNodeInfo root = getRootInActiveWindow();
@@ -266,15 +272,23 @@ public class LiyaAccessibilityService extends AccessibilityService {
             callback.accept("На экране пароли или защита аккаунта. Здесь я ничего не передаю и жду ваших команд.");
             return;
         }
+        String currentScreen = collectScreenText();
+        if (!previousAiScreen.isEmpty() && normalizeScreen(previousAiScreen).equals(normalizeScreen(currentScreen))) unchangedAiSteps++;
+        else unchangedAiSteps = 0;
+        if (unchangedAiSteps >= 3) lastAiResult = "Экран не изменился после нескольких попыток. Выбери другой путь, прокрутку или кнопку.";
+        String memory = getSharedPreferences("liya_agent_memory", MODE_PRIVATE).getString("last_success", "");
         aiStep++;
-        LiyaAiClient.request(activeAiTask, packageName, collectScreenText(), action -> {
+        LiyaAiClient.request(activeAiTask, packageName, currentScreen, previousAiScreen, lastAiResult, memory, aiStep, action -> {
             String result = executeAiAction(action);
+            previousAiScreen = currentScreen;
+            lastAiResult = result;
             if (isTerminalAiAction(action.name) || aiCancelled) {
+                if ("done".equals(action.name)) rememberSuccessfulScenario(packageName, result);
                 activeAiTask = "";
                 callback.accept(result);
                 return;
             }
-            aiHandler.postDelayed(() -> requestNextAiStep(callback), 1400);
+            aiHandler.postDelayed(() -> requestNextAiStep(callback), action.name.startsWith("scroll") ? 700 : 500);
         }, error -> {
             activeAiTask = "";
             callback.accept(error);
@@ -288,7 +302,16 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private void stopAiTask() {
         aiCancelled = true;
         activeAiTask = "";
-        aiHandler.removeCallbacksAndMessages(null);
+        // Do not remove the remote polling and voice callbacks owned by this handler.
+    }
+
+    private String normalizeScreen(String value) {
+        return value == null ? "" : value.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void rememberSuccessfulScenario(String packageName, String result) {
+        String record = "Задача: " + activeAiTask + "; приложение: " + packageName + "; результат: " + result;
+        getSharedPreferences("liya_agent_memory", MODE_PRIVATE).edit().putString("last_success", record).apply();
     }
 
     private String executeAiAction(LiyaAiClient.Action action) {
