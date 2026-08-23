@@ -45,6 +45,8 @@ jobs:
 
       - name: Sync protected server environment
         run: |
+          eas env:delete production --variable-name OPENAI_API_KEY --scope project --non-interactive || true
+          eas env:delete production --variable-name LIYA_DEVICE_TOKEN --scope project --non-interactive || true
           eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility sensitive --non-interactive
           eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility sensitive --non-interactive
 
