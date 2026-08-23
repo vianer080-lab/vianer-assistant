@@ -13,8 +13,8 @@ android {
         applicationId "com.vianerapps.liya"
         minSdk 26
         targetSdk 35
-        versionCode 13
-        versionName "1.0.1"
+        versionCode 14
+        versionName "1.1.0"
         buildConfigField "String", "LIYA_API_URL", "\"${liyaApiUrl}\""
         buildConfigField "String", "LIYA_DEVICE_TOKEN", "\"${liyaDeviceToken}\""
     }
@@ -32,4 +32,6 @@ android {
 
 dependencies {
     implementation "com.google.mlkit:translate:17.0.3"
+    implementation "net.java.dev.jna:jna:5.18.1@aar"
+    implementation "com.alphacephei:vosk-android:0.3.75@aar"
 }
