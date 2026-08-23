@@ -45,8 +45,8 @@ jobs:
 
       - name: Sync protected server environment
         run: |
-          eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility secret --non-interactive
-          eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility secret --non-interactive
+          eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility sensitive --non-interactive
+          eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility sensitive --non-interactive
 
       - name: Export web app and API routes
         run: npx expo export --platform web
