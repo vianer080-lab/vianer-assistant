@@ -70,7 +70,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        tts = new TextToSpeech(this, this);
+        tts = new TextToSpeech(this, this, LiyaVoice.GOOGLE_ENGINE);
         danceFrames = LiyaDanceFrames.load();
         hairFrames = LiyaHairFrames.load();
         hairstyle = prefs.getInt("hairstyle", 1);
