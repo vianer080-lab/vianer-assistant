@@ -12,6 +12,14 @@ const schema = {
   additionalProperties: false,
 };
 
+export function GET() {
+  return Response.json({
+    ok: true,
+    service: 'liya-screen-assistant',
+    configured: Boolean(process.env.OPENAI_API_KEY && process.env.LIYA_DEVICE_TOKEN),
+  });
+}
+
 export async function POST(request) {
   const apiKey = process.env.OPENAI_API_KEY;
   const deviceToken = process.env.LIYA_DEVICE_TOKEN;
