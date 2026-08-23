@@ -39,7 +39,6 @@ public class LiyaAccessibilityService extends AccessibilityService {
         super.onServiceConnected();
         instance = this;
         // The service stays active without covering other apps with a floating button.
-        hideFloatingButton();
     }
 
     @Override
