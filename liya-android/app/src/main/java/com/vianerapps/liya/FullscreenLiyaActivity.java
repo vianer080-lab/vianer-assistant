@@ -39,7 +39,7 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        tts = new TextToSpeech(this, this);
+        tts = new TextToSpeech(this, this, LiyaVoice.GOOGLE_ENGINE);
         buildUi();
         registerReceiver(closeReceiver, new IntentFilter(ACTION_CLOSE), RECEIVER_NOT_EXPORTED);
         if (getIntent().getBooleanExtra("listen_now", false)) startListening();
