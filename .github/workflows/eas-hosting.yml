@@ -49,8 +49,8 @@ jobs:
             echo "OPENAI_API_KEY and LIYA_DEVICE_TOKEN repository secrets are required."
             exit 1
           fi
-          eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility secret --force --non-interactive
-          eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility secret --force --non-interactive
+          eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility secret --non-interactive
+          eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility secret --non-interactive
 
       - name: Export web app and API routes
         run: npx expo export --platform web
