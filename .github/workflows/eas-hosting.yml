@@ -21,6 +21,8 @@ jobs:
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REDIRECT_URI: https://vianer-assistant.expo.app/api/youtube/callback
+      SUPABASE_URL: https://ceozpugxrwgblkwtxiew.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_1AhIOiv0elKK_2wWnaLs6w_z8lWl0M2
     steps:
       - name: Check required secrets
         run: |
@@ -53,6 +55,8 @@ jobs:
           eas env:delete production --variable-name YOUTUBE_CLIENT_ID --scope project --non-interactive || true
           eas env:delete production --variable-name YOUTUBE_CLIENT_SECRET --scope project --non-interactive || true
           eas env:delete production --variable-name YOUTUBE_REDIRECT_URI --scope project --non-interactive || true
+          eas env:delete production --variable-name SUPABASE_URL --scope project --non-interactive || true
+          eas env:delete production --variable-name SUPABASE_PUBLISHABLE_KEY --scope project --non-interactive || true
           eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility sensitive --non-interactive
           eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility sensitive --non-interactive
           if [ -n "$YOUTUBE_CLIENT_ID" ] && [ -n "$YOUTUBE_CLIENT_SECRET" ]; then
@@ -60,6 +64,8 @@ jobs:
             eas env:set --name YOUTUBE_CLIENT_SECRET --value "$YOUTUBE_CLIENT_SECRET" --environment production --visibility sensitive --non-interactive
             eas env:set --name YOUTUBE_REDIRECT_URI --value "$YOUTUBE_REDIRECT_URI" --environment production --visibility plaintext --non-interactive
           fi
+          eas env:set --name SUPABASE_URL --value "$SUPABASE_URL" --environment production --visibility plaintext --non-interactive
+          eas env:set --name SUPABASE_PUBLISHABLE_KEY --value "$SUPABASE_PUBLISHABLE_KEY" --environment production --visibility plaintext --non-interactive
 
       - name: Export web app and API routes
         run: npx expo export --platform web
