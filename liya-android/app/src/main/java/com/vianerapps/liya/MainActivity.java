@@ -70,6 +70,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }));
         content.addView(button("2. Включить постоянный голос", v -> startPersistentAssistant()));
         content.addView(button(LiyaRemoteClient.isPaired(this) ? "Vianer Assistant подключён" : "Подключить Vianer Assistant", v -> showPairingDialog()));
+        content.addView(button("Проверить готовность Лии", v -> runDiagnostics()));
         content.addView(button("Разовая голосовая команда", v -> startListening()));
         content.addView(button("Лия на весь экран", v -> {
             Intent full = new Intent(this, FullscreenLiyaActivity.class);
@@ -97,6 +98,29 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         ScrollView scroll = new ScrollView(this);
         scroll.addView(content);
         setContentView(scroll);
+    }
+
+    private void runDiagnostics() {
+        boolean microphone = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        boolean screen = LiyaAccessibilityService.getInstance() != null;
+        StringBuilder apps = new StringBuilder();
+        addAppStatus(apps, "Telegram", "org.telegram.messenger", "org.telegram.messenger.web", "org.thunderdog.challegram");
+        addAppStatus(apps, "Temu", "com.einnovation.temu");
+        addAppStatus(apps, "YouTube", "com.google.android.youtube");
+        addAppStatus(apps, "Google/Chrome", "com.android.chrome", "com.google.android.googlequicksearchbox");
+        addAppStatus(apps, "WhatsApp", "com.whatsapp", "com.whatsapp.w4b");
+        String report = "Микрофон: " + (microphone ? "готов" : "нет доступа")
+            + "\nУправление экраном: " + (screen ? "включено" : "выключено")
+            + "\nVianer Assistant: " + (LiyaRemoteClient.isPaired(this) ? "подключён" : "нужно подключить")
+            + "\n\nПриложения:\n" + apps;
+        status.setText(report);
+        speak(microphone && screen ? "Основные разрешения готовы." : "Не все разрешения включены. Посмотрите отчёт на экране.");
+    }
+
+    private void addAppStatus(StringBuilder out, String label, String... packages) {
+        boolean installed = false;
+        for (String packageName : packages) if (getPackageManager().getLaunchIntentForPackage(packageName) != null) { installed = true; break; }
+        out.append(label).append(": ").append(installed ? "установлено" : "будет открыт сайт").append('\n');
     }
 
     private void showPairingDialog() {
