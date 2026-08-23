@@ -110,6 +110,10 @@ public class LiyaAccessibilityService extends AccessibilityService {
         return "Локальный голос запускается без системных сигналов.";
     }
 
+    public void setOfflineVoiceMuted(boolean muted) {
+        if (offlineVoice != null) offlineVoice.pause(muted);
+    }
+
     private void speakOfflineState(String value) { if (backgroundTts != null) backgroundTts.speak(value, TextToSpeech.QUEUE_FLUSH, null, "liya_offline_state"); }
 
     public void stopContinuousVoice() {
@@ -162,6 +166,8 @@ public class LiyaAccessibilityService extends AccessibilityService {
     }
 
     private void handleBackgroundCommand(String command) {
+        if (PersonalModeActivity.dispatchOfflineVoiceCommand(command)) return;
+        if (FullscreenLiyaActivity.dispatchOfflineVoiceCommand(command)) return;
         String lower = command.toLowerCase(Locale.ROOT);
         if (lower.contains("перестань слушать") || lower.contains("выключи голос")) {
             continuousVoice = false;
