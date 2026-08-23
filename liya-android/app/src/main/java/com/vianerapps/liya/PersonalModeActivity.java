@@ -9,6 +9,7 @@ import android.app.Activity;
 import android.Manifest;
 import android.hardware.biometrics.BiometricPrompt;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -286,11 +287,10 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
             return;
         }
         if (recognizer != null) recognizer.destroy();
-        if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
-            recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
-        } else {
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        }
+        // Samsung may advertise on-device recognition without a Russian language pack
+        // and then return error 11. Start with the system recognition service and use
+        // the visible system dialog below as a compatibility fallback.
+        recognizer = SpeechRecognizer.createSpeechRecognizer(this);
         recognizer.setRecognitionListener(new RecognitionListener() {
             public void onReadyForSpeech(Bundle params) { selection.setText("Слушаю…"); }
             public void onBeginningOfSpeech() {}
