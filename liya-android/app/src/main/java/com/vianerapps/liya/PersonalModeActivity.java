@@ -20,11 +20,15 @@ import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.text.InputType;
 import android.view.Gravity;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -39,9 +43,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Executor;
 
-public class PersonalModeActivity extends Activity {
+public class PersonalModeActivity extends Activity implements TextToSpeech.OnInitListener {
     private static final String PREFS = "liya_personal_private";
     private static final String PIN_HASH = "pin_hash";
+    private static final int PERSONAL_SYSTEM_SPEECH = 501;
     private SharedPreferences prefs;
     private boolean unlocked;
     private int hairstyle;
@@ -53,15 +58,20 @@ public class PersonalModeActivity extends Activity {
     private int lastDance = 1;
     private long danceSpeed = 260;
     private Bitmap[] danceFrames;
+    private Bitmap[] hairFrames;
     private final Handler danceHandler = new Handler(Looper.getMainLooper());
     private Runnable danceRunnable;
+    private TextToSpeech tts;
+    private boolean personalAutoListening;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        tts = new TextToSpeech(this, this);
         danceFrames = LiyaDanceFrames.load();
+        hairFrames = LiyaHairFrames.load();
         hairstyle = prefs.getInt("hairstyle", 1);
         outfit = prefs.getInt("outfit", 1);
         if (prefs.getString(PIN_HASH, "").isEmpty()) showPinSetup();
@@ -127,77 +137,80 @@ public class PersonalModeActivity extends Activity {
     }
 
     private void showPersonalContent() {
-        LinearLayout content = base("ЛИЧНОЕ", "Изолированный режим Лии. Скриншоты и запись экрана запрещены.");
-
-        TextView profile = text("Личный образ\\nВзрослая Лия · около 30 лет\\nСтройная худощавая фигура\\n5 причёсок · 5 образов · 5 танцев", 18, Color.WHITE);
-        profile.setPadding(0, 0, 0, dp(12));
-        content.addView(profile);
-
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.rgb(3, 8, 18));
         personalImage = new ImageView(this);
-        personalImage.setAdjustViewBounds(true);
         personalImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
         personalImage.setBackgroundColor(Color.rgb(3, 8, 18));
         personalImage.setImageResource(imageForOutfit(outfit));
-        content.addView(personalImage, new LinearLayout.LayoutParams(-1, dp(500)));
+        root.addView(personalImage, new FrameLayout.LayoutParams(-1, -1));
 
-        selection = text("", 19, Color.rgb(125, 211, 252));
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.VERTICAL);
+        bottom.setPadding(dp(12), dp(8), dp(12), dp(14));
+        bottom.setBackgroundColor(Color.argb(205, 3, 8, 18));
+
+        selection = text("Лия слушает…", 17, Color.WHITE);
         selection.setGravity(Gravity.CENTER);
-        selection.setPadding(0, dp(8), 0, dp(16));
-        content.addView(selection);
-        refreshSelection();
+        selection.setMaxLines(2);
+        bottom.addView(selection, new LinearLayout.LayoutParams(-1, dp(52)));
 
-        content.addView(button("СМЕНИТЬ ПРИЧЁСКУ", v -> {
-            hairstyle = hairstyle % 5 + 1;
-            prefs.edit().putInt("hairstyle", hairstyle).apply();
-            refreshSelection();
-        }));
-        content.addView(button("СМЕНИТЬ ОБРАЗ", v -> {
-            stopDance();
-            outfit = outfit % 5 + 1;
-            prefs.edit().putInt("outfit", outfit).apply();
-            personalImage.setImageResource(imageForOutfit(outfit));
-            refreshSelection();
-        }));
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setVisibility(View.GONE);
 
         LinearLayout dances = new LinearLayout(this);
         dances.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 1; i <= 5; i++) {
             final int dance = i;
-            Button item = smallButton(String.valueOf(i), v -> startDance(dance));
-            dances.addView(item, new LinearLayout.LayoutParams(0, dp(56), 1));
+            dances.addView(smallButton(String.valueOf(i), v -> {
+                startDance(dance);
+                showAndSpeakPersonal("Включаю танец " + dance + ".");
+            }), new LinearLayout.LayoutParams(0, dp(48), 1));
         }
-        content.addView(text("Выберите танец", 18, Color.WHITE));
-        content.addView(dances);
-
-        content.addView(button("ГОЛОСОВАЯ КОМАНДА", v -> startPersonalListening()));
-        content.addView(button("СТОП", v -> stopDance()));
-        content.addView(button("ЗАПОМНИТЬ ЭТОТ ТАНЕЦ", v -> {
-            prefs.edit().putInt("favorite_dance", lastDance).apply();
-            Toast.makeText(this, "Танец " + lastDance + " сохранён", Toast.LENGTH_SHORT).show();
+        menu.addView(dances);
+        menu.addView(button("Сменить причёску", v -> {
+            hairstyle = hairstyle % 5 + 1;
+            prefs.edit().putInt("hairstyle", hairstyle).apply();
+            stopDance();
+            personalImage.setImageBitmap(hairFrames[hairstyle - 1]);
+            showAndSpeakPersonal("Сменила причёску.");
         }));
-
-        Switch learning = new Switch(this);
-        learning.setText("Запоминать мои предпочтения");
-        learning.setTextColor(Color.WHITE);
-        learning.setTextSize(18);
-        learning.setChecked(prefs.getBoolean("learning", true));
-        learning.setPadding(0, dp(12), 0, dp(18));
-        learning.setOnCheckedChangeListener((view, checked) -> prefs.edit().putBoolean("learning", checked).apply());
-        content.addView(learning);
-
-        TextView memory = text(
-            "Голосовые команды: «танец один», «танец два», «стоп», «медленнее», «быстрее», «следующий образ». Личная память хранится только на телефоне.",
-            16, Color.rgb(186, 205, 230)
-        );
-        memory.setPadding(0, 0, 0, dp(18));
-        content.addView(memory);
-
-        content.addView(button("ЗАБЛОКИРОВАТЬ", v -> {
+        menu.addView(button("Сменить образ", v -> {
+            stopDance();
+            outfit = outfit % 5 + 1;
+            prefs.edit().putInt("outfit", outfit).apply();
+            personalImage.setImageResource(imageForOutfit(outfit));
+            showAndSpeakPersonal("Переоделась.");
+        }));
+        menu.addView(button("Приватный образ 18+", v -> {
+            stopDance();
+            outfit = outfit % 5 + 1;
+            prefs.edit().putInt("outfit", outfit).putBoolean("adult_private", true).apply();
+            personalImage.setImageResource(imageForOutfit(outfit));
+            showAndSpeakPersonal("Включила приватный взрослый образ без откровенного контента.");
+        }));
+        menu.addView(button("Остановить танец", v -> { stopDance(); showAndSpeakPersonal("Остановилась."); }));
+        menu.addView(button("Запомнить танец", v -> {
+            prefs.edit().putInt("favorite_dance", lastDance).apply();
+            showAndSpeakPersonal("Запомнила танец " + lastDance + ".");
+        }));
+        menu.addView(button("Заблокировать", v -> {
+            personalAutoListening = false;
             stopDance();
             unlocked = false;
             showUnlock();
         }));
-        setContent(content);
+
+        bottom.addView(menu);
+        Button menuButton = smallButton("МЕНЮ", v -> menu.setVisibility(menu.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        bottom.addView(menuButton, new LinearLayout.LayoutParams(-1, dp(48)));
+        FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+        root.addView(bottom, bottomParams);
+        setContentView(root);
+
+        personalAutoListening = true;
+        danceHandler.postDelayed(this::startPersonalListening, 500);
     }
 
     private int imageForOutfit(int value) {
@@ -273,7 +286,11 @@ public class PersonalModeActivity extends Activity {
             return;
         }
         if (recognizer != null) recognizer.destroy();
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+            recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
+        } else {
+            recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        }
         recognizer.setRecognitionListener(new RecognitionListener() {
             public void onReadyForSpeech(Bundle params) { selection.setText("Слушаю…"); }
             public void onBeginningOfSpeech() {}
@@ -282,6 +299,11 @@ public class PersonalModeActivity extends Activity {
             public void onEndOfSpeech() {}
             public void onError(int error) {
                 if (selection != null) selection.setText(personalSpeechError(error));
+                if (error == 11) {
+                    danceHandler.postDelayed(PersonalModeActivity.this::openSystemSpeechDialog, 400);
+                } else if (personalAutoListening) {
+                    danceHandler.postDelayed(PersonalModeActivity.this::startPersonalListening, 1200);
+                }
             }
             public void onPartialResults(Bundle partialResults) {}
             public void onEvent(int eventType, Bundle params) {}
@@ -300,6 +322,34 @@ public class PersonalModeActivity extends Activity {
         recognizer.startListening(intent);
     }
 
+    private void openSystemSpeechDialog() {
+        if (!unlocked) return;
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Говорите с Лией");
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+        try {
+            startActivityForResult(intent, PERSONAL_SYSTEM_SPEECH);
+        } catch (Exception error) {
+            showAndSpeakPersonal("На телефоне не запустилась служба распознавания речи.");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PERSONAL_SYSTEM_SPEECH) return;
+        if (resultCode == RESULT_OK && data != null) {
+            ArrayList<String> heard = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (heard != null && !heard.isEmpty()) {
+                handlePersonalCommand(heard.get(0));
+                return;
+            }
+        }
+        if (personalAutoListening) danceHandler.postDelayed(this::startPersonalListening, 800);
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -315,61 +365,90 @@ public class PersonalModeActivity extends Activity {
         if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "Нет связи со службой распознавания";
         if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "Микрофон занят — нажмите ещё раз";
         if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "Не расслышала — говорите после слова «Слушаю»";
+        if (error == 11) return "Переключаюсь на совместимый микрофон…";
         return "Ошибка голоса " + error;
     }
 
     private void handlePersonalCommand(String raw) {
         String command = raw.toLowerCase(Locale.ROOT);
-        if (command.contains("стоп")) stopDance();
-        else if (command.contains("медленнее")) { danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); }
-        else if (command.contains("быстрее")) { danceSpeed = Math.max(320, danceSpeed - 160); startDance(lastDance); }
+        if (command.contains("стоп")) { stopDance(); showAndSpeakPersonal("Остановилась."); }
+        else if (command.contains("медленнее")) { danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); showAndSpeakPersonal("Хорошо, двигаюсь медленнее."); }
+        else if (command.contains("быстрее")) { danceSpeed = Math.max(100, danceSpeed - 80); startDance(lastDance); showAndSpeakPersonal("Хорошо, двигаюсь быстрее."); }
         else if (command.contains("следующий образ") || command.contains("переоденься")) {
             stopDance();
             outfit = outfit % 5 + 1;
             prefs.edit().putInt("outfit", outfit).apply();
             personalImage.setImageResource(imageForOutfit(outfit));
-            refreshSelection();
-        } else if (command.contains("пять")) startDance(5);
-        else if (command.contains("четыр")) startDance(4);
-        else if (command.contains("три")) startDance(3);
-        else if (command.contains("два")) startDance(2);
-        else if (command.contains("один")) startDance(1);
+            showAndSpeakPersonal("Переоделась. Выбрала образ " + outfit + ".");
+        } else if (command.contains("пять")) { startDance(5); showAndSpeakPersonal("Включаю пятый танец."); }
+        else if (command.contains("четыр")) { startDance(4); showAndSpeakPersonal("Включаю четвёртый танец."); }
+        else if (command.contains("три")) { startDance(3); showAndSpeakPersonal("Включаю третий танец."); }
+        else if (command.contains("два")) { startDance(2); showAndSpeakPersonal("Включаю второй танец."); }
+        else if (command.contains("один")) { startDance(1); showAndSpeakPersonal("Включаю первый танец."); }
         else understandPersonalCommand(raw);
     }
 
     private void understandPersonalCommand(String raw) {
         selection.setText("Понимаю просьбу…");
-        String capabilities = "Личный режим. Можно: выбрать танец 1-5, остановить танец, сделать быстрее или медленнее, сменить образ, сменить причёску, запомнить текущий танец.";
+        prefs.edit().putString("last_request", raw).apply();
+        String capabilities = "Личный голосовой режим. Поддерживается обычный дружелюбный разговор и действия: выбрать танец 1-5, остановить танец, сделать быстрее или медленнее, сменить образ, сменить причёску, запомнить текущий танец. Текущие предпочтения: образ " + outfit + ", причёска " + hairstyle + ", любимый танец " + prefs.getInt("favorite_dance", 1) + ".";
         LiyaAiClient.request(raw, "com.vianerapps.liya.personal", capabilities, action -> {
             switch (action.name) {
-                case "personal_dance_1": startDance(1); break;
-                case "personal_dance_2": startDance(2); break;
-                case "personal_dance_3": startDance(3); break;
-                case "personal_dance_4": startDance(4); break;
-                case "personal_dance_5": startDance(5); break;
-                case "personal_stop": stopDance(); break;
-                case "personal_faster": danceSpeed = Math.max(320, danceSpeed - 160); startDance(lastDance); break;
-                case "personal_slower": danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); break;
+                case "personal_dance_1": startDance(1); showAndSpeakPersonal("Включаю первый танец."); break;
+                case "personal_dance_2": startDance(2); showAndSpeakPersonal("Включаю второй танец."); break;
+                case "personal_dance_3": startDance(3); showAndSpeakPersonal("Включаю третий танец."); break;
+                case "personal_dance_4": startDance(4); showAndSpeakPersonal("Включаю четвёртый танец."); break;
+                case "personal_dance_5": startDance(5); showAndSpeakPersonal("Включаю пятый танец."); break;
+                case "personal_stop": stopDance(); showAndSpeakPersonal("Остановилась."); break;
+                case "personal_faster": danceSpeed = Math.max(100, danceSpeed - 80); startDance(lastDance); showAndSpeakPersonal("Двигаюсь быстрее."); break;
+                case "personal_slower": danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); showAndSpeakPersonal("Двигаюсь медленнее."); break;
                 case "personal_next_outfit":
                     stopDance();
                     outfit = outfit % 5 + 1;
                     prefs.edit().putInt("outfit", outfit).apply();
                     personalImage.setImageResource(imageForOutfit(outfit));
-                    refreshSelection();
+                    showAndSpeakPersonal("Переоделась. Выбрала образ " + outfit + ".");
                     break;
                 case "personal_next_hair":
                     hairstyle = hairstyle % 5 + 1;
                     prefs.edit().putInt("hairstyle", hairstyle).apply();
-                    refreshSelection();
+                    stopDance();
+                    personalImage.setImageBitmap(hairFrames[hairstyle - 1]);
+                    showAndSpeakPersonal("Сменила причёску. Выбрала вариант " + hairstyle + ".");
                     break;
                 case "personal_remember":
                     prefs.edit().putInt("favorite_dance", lastDance).apply();
-                    selection.setText("Запомнила танец " + lastDance);
+                    showAndSpeakPersonal("Запомнила танец " + lastDance + ".");
                     break;
                 default:
-                    selection.setText(action.explanation.isEmpty() ? "Уточните, что сделать" : action.explanation);
+                    showAndSpeakPersonal(action.explanation.isEmpty() ? "Уточните, пожалуйста, что мне сделать." : action.explanation);
             }
-        }, error -> selection.setText(error));
+        }, this::showAndSpeakPersonal);
+    }
+
+    private void showAndSpeakPersonal(String value) {
+        if (selection != null) selection.setText(value);
+        if (tts != null) {
+            tts.speak(value, TextToSpeech.QUEUE_FLUSH, null, "liya_personal");
+        } else if (personalAutoListening) {
+            danceHandler.postDelayed(this::startPersonalListening, 1200);
+        }
+    }
+
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts.setLanguage(new Locale("ru", "RU"));
+            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String utteranceId) { }
+                @Override public void onError(String utteranceId) {
+                    if (personalAutoListening) runOnUiThread(() -> danceHandler.postDelayed(PersonalModeActivity.this::startPersonalListening, 500));
+                }
+                @Override public void onDone(String utteranceId) {
+                    if (personalAutoListening) runOnUiThread(() -> danceHandler.postDelayed(PersonalModeActivity.this::startPersonalListening, 400));
+                }
+            });
+        }
     }
 
     private void refreshSelection() {
@@ -447,11 +526,19 @@ public class PersonalModeActivity extends Activity {
     @Override protected void onStop() {
         super.onStop();
         if (!isChangingConfigurations()) {
+            personalAutoListening = false;
             stopDance();
             if (recognizer != null) recognizer.destroy();
             unlocked = false;
             finish();
         }
+    }
+
+    @Override protected void onDestroy() {
+        danceHandler.removeCallbacksAndMessages(null);
+        if (recognizer != null) recognizer.destroy();
+        if (tts != null) tts.shutdown();
+        super.onDestroy();
     }
 
     private int dp(int value) {
