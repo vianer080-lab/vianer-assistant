@@ -51,6 +51,14 @@ jobs:
               -dname "CN=Liya Stable Android,OU=Vianer Apps,O=Vianer,L=Tbilisi,C=GE"
           fi
       - name: Build debug APK
+        env:
+          VOSK_MODEL_URL: https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
+        run: |
+          mkdir -p liya-android/app/src/main/assets/model-ru
+          curl -L --fail --retry 3 -o /tmp/vosk-ru.zip "$VOSK_MODEL_URL"
+          unzip -q /tmp/vosk-ru.zip -d /tmp/vosk-ru
+          cp -R /tmp/vosk-ru/vosk-model-small-ru-0.22/. liya-android/app/src/main/assets/model-ru/
+      - name: Compile debug APK
         working-directory: liya-android
         run: >-
           gradle --no-daemon :app:assembleDebug
