@@ -75,6 +75,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         content.addView(button("Перевод разговора рядом", v ->
             startActivity(new Intent(this, NearbyTranslationActivity.class))
         ));
+        content.addView(button("Личное", v ->
+            startActivity(new Intent(this, PersonalModeActivity.class))
+        ));
         content.addView(button("Прочитать текущий экран", v -> runCommand("прочитай экран")));
         content.addView(button("Прокрутить вниз", v -> runCommand("прокрути вниз")));
         content.addView(button("Назад", v -> runCommand("назад")));
