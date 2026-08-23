@@ -15,11 +15,14 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LIYA_DEVICE_TOKEN: ${{ secrets.LIYA_DEVICE_TOKEN }}
     steps:
-      - name: Check Expo token
+      - name: Check required secrets
         run: |
-          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "EXPO_TOKEN repository secret is required."
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ] || [ -z "$OPENAI_API_KEY" ] || [ -z "$LIYA_DEVICE_TOKEN" ]; then
+            echo "EXPO_TOKEN, OPENAI_API_KEY and LIYA_DEVICE_TOKEN repository secrets are required."
             exit 1
           fi
 
@@ -41,14 +44,7 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Sync protected server environment
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LIYA_DEVICE_TOKEN: ${{ secrets.LIYA_DEVICE_TOKEN }}
         run: |
-          if [ -z "$OPENAI_API_KEY" ] || [ -z "$LIYA_DEVICE_TOKEN" ]; then
-            echo "OPENAI_API_KEY and LIYA_DEVICE_TOKEN repository secrets are required."
-            exit 1
-          fi
           eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility secret --non-interactive
           eas env:set --name LIYA_DEVICE_TOKEN --value "$LIYA_DEVICE_TOKEN" --environment production --visibility secret --non-interactive
 
