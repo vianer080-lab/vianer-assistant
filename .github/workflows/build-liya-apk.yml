@@ -1,5 +1,9 @@
 name: Build Liya Android APK
 
+concurrency:
+  group: liya-android-stable-build
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   pull_request:
@@ -27,6 +31,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Restore stable Liya signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: liya-android-signing-v1
+      - name: Create signing key once
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore ~/.android/debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Liya Stable Android,OU=Vianer Apps,O=Vianer,L=Tbilisi,C=GE"
+          fi
       - name: Build debug APK
         working-directory: liya-android
         run: >-
