@@ -58,7 +58,7 @@ jobs:
           if [ -n "$YOUTUBE_CLIENT_ID" ] && [ -n "$YOUTUBE_CLIENT_SECRET" ]; then
             eas env:set --name YOUTUBE_CLIENT_ID --value "$YOUTUBE_CLIENT_ID" --environment production --visibility sensitive --non-interactive
             eas env:set --name YOUTUBE_CLIENT_SECRET --value "$YOUTUBE_CLIENT_SECRET" --environment production --visibility sensitive --non-interactive
-            eas env:set --name YOUTUBE_REDIRECT_URI --value "$YOUTUBE_REDIRECT_URI" --environment production --visibility plain-text --non-interactive
+            eas env:set --name YOUTUBE_REDIRECT_URI --value "$YOUTUBE_REDIRECT_URI" --environment production --visibility plaintext --non-interactive
           fi
 
       - name: Export web app and API routes
