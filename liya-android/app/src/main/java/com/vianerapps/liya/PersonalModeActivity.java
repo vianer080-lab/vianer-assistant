@@ -6,9 +6,11 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.app.Activity;
+import android.Manifest;
 import android.hardware.biometrics.BiometricPrompt;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -270,6 +272,11 @@ public class PersonalModeActivity extends Activity {
     }
 
     private void startPersonalListening() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            selection.setText("Разрешите Лии доступ к микрофону");
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 40);
+            return;
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             Toast.makeText(this, "Распознавание речи недоступно", Toast.LENGTH_SHORT).show();
             return;
@@ -282,7 +289,9 @@ public class PersonalModeActivity extends Activity {
             public void onRmsChanged(float rmsdB) {}
             public void onBufferReceived(byte[] buffer) {}
             public void onEndOfSpeech() {}
-            public void onError(int error) { refreshSelection(); }
+            public void onError(int error) {
+                if (selection != null) selection.setText(personalSpeechError(error));
+            }
             public void onPartialResults(Bundle partialResults) {}
             public void onEvent(int eventType, Bundle params) {}
             public void onResults(Bundle results) {
@@ -293,7 +302,29 @@ public class PersonalModeActivity extends Activity {
         android.content.Intent intent = new android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
+        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false);
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
         recognizer.startListening(intent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 40) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) startPersonalListening();
+            else if (selection != null) selection.setText("Без разрешения микрофона голосовые команды не работают");
+        }
+    }
+
+    private String personalSpeechError(int error) {
+        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) return "Нет разрешения на микрофон";
+        if (error == SpeechRecognizer.ERROR_AUDIO) return "Микрофон занят другим приложением";
+        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "Нет связи со службой распознавания";
+        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "Микрофон занят — нажмите ещё раз";
+        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "Не расслышала — говорите после слова «Слушаю»";
+        return "Ошибка голоса " + error;
     }
 
     private void handlePersonalCommand(String raw) {
@@ -312,7 +343,42 @@ public class PersonalModeActivity extends Activity {
         else if (command.contains("три")) startDance(3);
         else if (command.contains("два")) startDance(2);
         else if (command.contains("один")) startDance(1);
-        else Toast.makeText(this, "Команда пока не распознана", Toast.LENGTH_SHORT).show();
+        else understandPersonalCommand(raw);
+    }
+
+    private void understandPersonalCommand(String raw) {
+        selection.setText("Понимаю просьбу…");
+        String capabilities = "Личный режим. Можно: выбрать танец 1-5, остановить танец, сделать быстрее или медленнее, сменить образ, сменить причёску, запомнить текущий танец.";
+        LiyaAiClient.request(raw, "com.vianerapps.liya.personal", capabilities, action -> {
+            switch (action.name) {
+                case "personal_dance_1": startDance(1); break;
+                case "personal_dance_2": startDance(2); break;
+                case "personal_dance_3": startDance(3); break;
+                case "personal_dance_4": startDance(4); break;
+                case "personal_dance_5": startDance(5); break;
+                case "personal_stop": stopDance(); break;
+                case "personal_faster": danceSpeed = Math.max(320, danceSpeed - 160); startDance(lastDance); break;
+                case "personal_slower": danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); break;
+                case "personal_next_outfit":
+                    stopDance();
+                    outfit = outfit % 5 + 1;
+                    prefs.edit().putInt("outfit", outfit).apply();
+                    personalImage.setImageResource(imageForOutfit(outfit));
+                    refreshSelection();
+                    break;
+                case "personal_next_hair":
+                    hairstyle = hairstyle % 5 + 1;
+                    prefs.edit().putInt("hairstyle", hairstyle).apply();
+                    refreshSelection();
+                    break;
+                case "personal_remember":
+                    prefs.edit().putInt("favorite_dance", lastDance).apply();
+                    selection.setText("Запомнила танец " + lastDance);
+                    break;
+                default:
+                    selection.setText(action.explanation.isEmpty() ? "Уточните, что сделать" : action.explanation);
+            }
+        }, error -> selection.setText(error));
     }
 
     private void refreshSelection() {
