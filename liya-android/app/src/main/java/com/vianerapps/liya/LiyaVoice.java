@@ -25,9 +25,12 @@ final class LiyaVoice {
             String name = voice.getName().toLowerCase(Locale.ROOT);
             int score = 10;
             if (!voice.isNetworkConnectionRequired()) score += 4;
-            if (name.contains("female") || name.contains("жен") || name.contains("alena")
-                || name.contains("milena") || name.contains("svetlana") || name.contains("irina")) score += 20;
-            if (name.contains("male") || name.contains("муж")) score -= 20;
+            boolean female = name.contains("female") || name.contains("жен") || name.contains("alena")
+                || name.contains("milena") || name.contains("svetlana") || name.contains("irina")
+                || name.contains("-ruf-") || name.contains("-dfc-");
+            boolean male = (name.contains("male") && !name.contains("female")) || name.contains("муж");
+            if (female) score += 30;
+            if (male) score -= 30;
             if (score > bestScore) { best = voice; bestScore = score; }
         }
         if (best != null) tts.setVoice(best);
