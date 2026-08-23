@@ -12,8 +12,11 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -48,13 +51,17 @@ public class PersonalModeActivity extends Activity {
     private AnimatorSet danceSet;
     private SpeechRecognizer recognizer;
     private int lastDance = 1;
-    private long danceSpeed = 720;
+    private long danceSpeed = 260;
+    private Bitmap[] danceFrames;
+    private final Handler danceHandler = new Handler(Looper.getMainLooper());
+    private Runnable danceRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        danceFrames = LiyaDanceFrames.load();
         hairstyle = prefs.getInt("hairstyle", 1);
         outfit = prefs.getInt("outfit", 1);
         if (prefs.getString(PIN_HASH, "").isEmpty()) showPinSetup();
@@ -218,47 +225,30 @@ public class PersonalModeActivity extends Activity {
         stopDance();
         lastDance = dance;
         if (prefs.getBoolean("learning", true)) prefs.edit().putInt("last_dance", dance).apply();
-
-        List<Animator> steps = new ArrayList<>();
-        for (int i = 0; i < 14; i++) {
-            float direction = (i % 2 == 0) ? 1f : -1f;
-            float x = direction * (10f + dance * 3f);
-            float rotation = direction * (1.5f + dance * .7f);
-            float scale = 1f + ((i % 3 == 0) ? .025f * dance : 0f);
-            if (dance == 3) x *= .45f;
-            if (dance == 4) rotation *= 1.6f;
-            if (dance == 5) { x *= 1.35f; scale += .02f; }
-            ObjectAnimator move = ObjectAnimator.ofPropertyValuesHolder(
-                personalImage,
-                PropertyValuesHolder.ofFloat(android.view.View.TRANSLATION_X, x),
-                PropertyValuesHolder.ofFloat(android.view.View.ROTATION, rotation),
-                PropertyValuesHolder.ofFloat(android.view.View.SCALE_X, scale),
-                PropertyValuesHolder.ofFloat(android.view.View.SCALE_Y, scale)
-            );
-            move.setDuration(danceSpeed);
-            steps.add(move);
-        }
-        ObjectAnimator reset = ObjectAnimator.ofPropertyValuesHolder(
-            personalImage,
-            PropertyValuesHolder.ofFloat(android.view.View.TRANSLATION_X, 0f),
-            PropertyValuesHolder.ofFloat(android.view.View.ROTATION, 0f),
-            PropertyValuesHolder.ofFloat(android.view.View.SCALE_X, 1f),
-            PropertyValuesHolder.ofFloat(android.view.View.SCALE_Y, 1f)
-        );
-        reset.setDuration(danceSpeed);
-        steps.add(reset);
-        danceSet = new AnimatorSet();
-        danceSet.playSequentially(steps);
-        danceSet.addListener(new AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(Animator animation) {
-                if (danceSet == animation && unlocked) startDance(lastDance);
+        final int[][] choreography = {
+            {0,1,2,3,4,5,6,7},
+            {0,2,4,6,7,5,3,1},
+            {0,1,3,5,7,6,4,2},
+            {7,6,5,4,3,2,1,0},
+            {0,3,1,4,2,5,6,7}
+        };
+        final int[] order = choreography[Math.max(1, Math.min(5, dance)) - 1];
+        final int[] position = {0};
+        danceRunnable = new Runnable() {
+            @Override public void run() {
+                if (!unlocked || danceRunnable != this || personalImage == null) return;
+                personalImage.setImageBitmap(danceFrames[order[position[0]]]);
+                position[0] = (position[0] + 1) % order.length;
+                danceHandler.postDelayed(this, danceSpeed);
             }
-        });
-        danceSet.start();
+        };
+        danceHandler.post(danceRunnable);
         selection.setText("Танец " + dance + " · Причёска " + hairstyle + " · Образ " + outfit);
     }
 
     private void stopDance() {
+        if (danceRunnable != null) danceHandler.removeCallbacks(danceRunnable);
+        danceRunnable = null;
         AnimatorSet running = danceSet;
         danceSet = null;
         if (running != null) running.cancel();
@@ -267,6 +257,7 @@ public class PersonalModeActivity extends Activity {
             personalImage.setRotation(0f);
             personalImage.setScaleX(1f);
             personalImage.setScaleY(1f);
+            personalImage.setImageResource(imageForOutfit(outfit));
         }
         refreshSelection();
     }
