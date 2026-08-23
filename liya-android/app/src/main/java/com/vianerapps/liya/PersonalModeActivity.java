@@ -1,5 +1,10 @@
 package com.vianerapps.liya;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
 import android.app.Activity;
 import android.hardware.biometrics.BiometricPrompt;
 import android.content.Context;
@@ -7,11 +12,15 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
@@ -20,6 +29,9 @@ import android.widget.Toast;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Executor;
 
 public class PersonalModeActivity extends Activity {
@@ -30,6 +42,11 @@ public class PersonalModeActivity extends Activity {
     private int hairstyle;
     private int outfit;
     private TextView selection;
+    private ImageView personalImage;
+    private AnimatorSet danceSet;
+    private SpeechRecognizer recognizer;
+    private int lastDance = 1;
+    private long danceSpeed = 720;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -103,9 +120,16 @@ public class PersonalModeActivity extends Activity {
     private void showPersonalContent() {
         LinearLayout content = base("ЛИЧНОЕ", "Изолированный режим Лии. Скриншоты и запись экрана запрещены.");
 
-        TextView profile = text("Личный образ\nВзрослая Лия · около 30 лет\nСтройная худощавая фигура\nОтдельный закрытый гардероб", 18, Color.WHITE);
-        profile.setPadding(0, 0, 0, dp(18));
+        TextView profile = text("Личный образ\\nВзрослая Лия · около 30 лет\\nСтройная худощавая фигура\\n5 причёсок · 5 образов · 5 танцев", 18, Color.WHITE);
+        profile.setPadding(0, 0, 0, dp(12));
         content.addView(profile);
+
+        personalImage = new ImageView(this);
+        personalImage.setAdjustViewBounds(true);
+        personalImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        personalImage.setBackgroundColor(Color.rgb(3, 8, 18));
+        personalImage.setImageResource(imageForOutfit(outfit));
+        content.addView(personalImage, new LinearLayout.LayoutParams(-1, dp(500)));
 
         selection = text("", 19, Color.rgb(125, 211, 252));
         selection.setGravity(Gravity.CENTER);
@@ -119,9 +143,28 @@ public class PersonalModeActivity extends Activity {
             refreshSelection();
         }));
         content.addView(button("СМЕНИТЬ ОБРАЗ", v -> {
+            stopDance();
             outfit = outfit % 5 + 1;
             prefs.edit().putInt("outfit", outfit).apply();
+            personalImage.setImageResource(imageForOutfit(outfit));
             refreshSelection();
+        }));
+
+        LinearLayout dances = new LinearLayout(this);
+        dances.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 1; i <= 5; i++) {
+            final int dance = i;
+            Button item = smallButton(String.valueOf(i), v -> startDance(dance));
+            dances.addView(item, new LinearLayout.LayoutParams(0, dp(56), 1));
+        }
+        content.addView(text("Выберите танец", 18, Color.WHITE));
+        content.addView(dances);
+
+        content.addView(button("ГОЛОСОВАЯ КОМАНДА", v -> startPersonalListening()));
+        content.addView(button("СТОП", v -> stopDance()));
+        content.addView(button("ЗАПОМНИТЬ ЭТОТ ТАНЕЦ", v -> {
+            prefs.edit().putInt("favorite_dance", lastDance).apply();
+            Toast.makeText(this, "Танец " + lastDance + " сохранён", Toast.LENGTH_SHORT).show();
         }));
 
         Switch learning = new Switch(this);
@@ -134,17 +177,142 @@ public class PersonalModeActivity extends Activity {
         content.addView(learning);
 
         TextView memory = text(
-            "Личная память хранится только на телефоне. Лия сможет запоминать выбранные причёски, образы и будущие сценарии движений. Основной режим и защита приложения не изменяются.",
+            "Голосовые команды: «танец один», «танец два», «стоп», «медленнее», «быстрее», «следующий образ». Личная память хранится только на телефоне.",
             16, Color.rgb(186, 205, 230)
         );
         memory.setPadding(0, 0, 0, dp(18));
         content.addView(memory);
 
         content.addView(button("ЗАБЛОКИРОВАТЬ", v -> {
+            stopDance();
             unlocked = false;
             showUnlock();
         }));
         setContent(content);
+    }
+
+    private int imageForOutfit(int value) {
+        switch (value) {
+            case 2: return R.drawable.liya_personal_2;
+            case 3: return R.drawable.liya_personal_3;
+            case 4: return R.drawable.liya_personal_4;
+            case 5: return R.drawable.liya_personal_5;
+            default: return R.drawable.liya_personal_1;
+        }
+    }
+
+    private Button smallButton(String label, android.view.View.OnClickListener listener) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setTextSize(18);
+        button.setTextColor(Color.WHITE);
+        button.setBackgroundColor(Color.rgb(126, 34, 206));
+        button.setOnClickListener(listener);
+        return button;
+    }
+
+    private void startDance(int dance) {
+        if (personalImage == null) return;
+        stopDance();
+        lastDance = dance;
+        if (prefs.getBoolean("learning", true)) prefs.edit().putInt("last_dance", dance).apply();
+
+        List<Animator> steps = new ArrayList<>();
+        for (int i = 0; i < 14; i++) {
+            float direction = (i % 2 == 0) ? 1f : -1f;
+            float x = direction * (10f + dance * 3f);
+            float rotation = direction * (1.5f + dance * .7f);
+            float scale = 1f + ((i % 3 == 0) ? .025f * dance : 0f);
+            if (dance == 3) x *= .45f;
+            if (dance == 4) rotation *= 1.6f;
+            if (dance == 5) { x *= 1.35f; scale += .02f; }
+            ObjectAnimator move = ObjectAnimator.ofPropertyValuesHolder(
+                personalImage,
+                PropertyValuesHolder.ofFloat(android.view.View.TRANSLATION_X, x),
+                PropertyValuesHolder.ofFloat(android.view.View.ROTATION, rotation),
+                PropertyValuesHolder.ofFloat(android.view.View.SCALE_X, scale),
+                PropertyValuesHolder.ofFloat(android.view.View.SCALE_Y, scale)
+            );
+            move.setDuration(danceSpeed);
+            steps.add(move);
+        }
+        ObjectAnimator reset = ObjectAnimator.ofPropertyValuesHolder(
+            personalImage,
+            PropertyValuesHolder.ofFloat(android.view.View.TRANSLATION_X, 0f),
+            PropertyValuesHolder.ofFloat(android.view.View.ROTATION, 0f),
+            PropertyValuesHolder.ofFloat(android.view.View.SCALE_X, 1f),
+            PropertyValuesHolder.ofFloat(android.view.View.SCALE_Y, 1f)
+        );
+        reset.setDuration(danceSpeed);
+        steps.add(reset);
+        danceSet = new AnimatorSet();
+        danceSet.playSequentially(steps);
+        danceSet.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator animation) {
+                if (danceSet == animation && unlocked) startDance(lastDance);
+            }
+        });
+        danceSet.start();
+        selection.setText("Танец " + dance + " · Причёска " + hairstyle + " · Образ " + outfit);
+    }
+
+    private void stopDance() {
+        AnimatorSet running = danceSet;
+        danceSet = null;
+        if (running != null) running.cancel();
+        if (personalImage != null) {
+            personalImage.setTranslationX(0f);
+            personalImage.setRotation(0f);
+            personalImage.setScaleX(1f);
+            personalImage.setScaleY(1f);
+        }
+        refreshSelection();
+    }
+
+    private void startPersonalListening() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "Распознавание речи недоступно", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (recognizer != null) recognizer.destroy();
+        recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        recognizer.setRecognitionListener(new RecognitionListener() {
+            public void onReadyForSpeech(Bundle params) { selection.setText("Слушаю…"); }
+            public void onBeginningOfSpeech() {}
+            public void onRmsChanged(float rmsdB) {}
+            public void onBufferReceived(byte[] buffer) {}
+            public void onEndOfSpeech() {}
+            public void onError(int error) { refreshSelection(); }
+            public void onPartialResults(Bundle partialResults) {}
+            public void onEvent(int eventType, Bundle params) {}
+            public void onResults(Bundle results) {
+                ArrayList<String> heard = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (heard != null && !heard.isEmpty()) handlePersonalCommand(heard.get(0));
+            }
+        });
+        android.content.Intent intent = new android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+        recognizer.startListening(intent);
+    }
+
+    private void handlePersonalCommand(String raw) {
+        String command = raw.toLowerCase(Locale.ROOT);
+        if (command.contains("стоп")) stopDance();
+        else if (command.contains("медленнее")) { danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); }
+        else if (command.contains("быстрее")) { danceSpeed = Math.max(320, danceSpeed - 160); startDance(lastDance); }
+        else if (command.contains("следующий образ") || command.contains("переоденься")) {
+            stopDance();
+            outfit = outfit % 5 + 1;
+            prefs.edit().putInt("outfit", outfit).apply();
+            personalImage.setImageResource(imageForOutfit(outfit));
+            refreshSelection();
+        } else if (command.contains("пять")) startDance(5);
+        else if (command.contains("четыр")) startDance(4);
+        else if (command.contains("три")) startDance(3);
+        else if (command.contains("два")) startDance(2);
+        else if (command.contains("один")) startDance(1);
+        else Toast.makeText(this, "Команда пока не распознана", Toast.LENGTH_SHORT).show();
     }
 
     private void refreshSelection() {
@@ -222,6 +390,8 @@ public class PersonalModeActivity extends Activity {
     @Override protected void onStop() {
         super.onStop();
         if (!isChangingConfigurations()) {
+            stopDance();
+            if (recognizer != null) recognizer.destroy();
             unlocked = false;
             finish();
         }
