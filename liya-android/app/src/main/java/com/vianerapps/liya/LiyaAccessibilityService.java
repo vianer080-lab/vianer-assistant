@@ -47,7 +47,8 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private final Runnable remotePoll = new Runnable() {
         @Override public void run() {
             if (!remoteTaskRunning) LiyaRemoteClient.poll(LiyaAccessibilityService.this, LiyaAccessibilityService.this::runRemoteTask);
-            aiHandler.postDelayed(this, 8000);
+            // Keep remote commands responsive while the accessibility service is alive.
+            aiHandler.postDelayed(this, remoteTaskRunning ? 900 : 1500);
         }
     };
 
