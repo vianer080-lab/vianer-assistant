@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnInitListener {
+    private static FullscreenLiyaActivity visibleInstance;
     private static final int SYSTEM_SPEECH = 503;
     public static final String ACTION_CLOSE = "com.vianerapps.liya.CLOSE_FULLSCREEN";
     private TextToSpeech tts;
@@ -42,7 +43,7 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         tts = new TextToSpeech(this, this, LiyaVoice.GOOGLE_ENGINE);
         buildUi();
         registerReceiver(closeReceiver, new IntentFilter(ACTION_CLOSE), RECEIVER_NOT_EXPORTED);
-        if (getIntent().getBooleanExtra("listen_now", false)) startListening();
+        startQuietVoice();
     }
 
     private void buildUi() {
@@ -72,7 +73,7 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         status.setTypeface(null, 1);
         controls.addView(status, new LinearLayout.LayoutParams(-1, dp(54)));
 
-        Button listen = button("ГОВОРИТЬ С ЛИЕЙ", v -> startListening());
+        Button listen = button("ГОЛОС: ВКЛЮЧЁН", v -> startQuietVoice());
         controls.addView(listen);
         Button collapse = button("СВЕРНУТЬ", v -> finish());
         controls.addView(collapse);
@@ -133,6 +134,22 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         recognizer.startListening(intent);
     }
 
+    private void startQuietVoice() {
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service == null) { setState("ВКЛЮЧИТЕ УПРАВЛЕНИЕ ЭКРАНОМ", 1f); return; }
+        setState(service.startContinuousVoice().toUpperCase(Locale.ROOT), 1f);
+    }
+
+    public static boolean dispatchOfflineVoiceCommand(String command) {
+        FullscreenLiyaActivity activity = visibleInstance;
+        if (activity == null) return false;
+        activity.runOnUiThread(() -> activity.runCommand(command));
+        return true;
+    }
+
+    @Override protected void onResume() { super.onResume(); visibleInstance = this; }
+    @Override protected void onPause() { if (visibleInstance == this) visibleInstance = null; super.onPause(); }
+
     private void openSystemSpeechDialog() {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
@@ -183,7 +200,13 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
 
     private void showAndSpeak(String text) {
         setState(text, 1f);
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service != null) service.setOfflineVoiceMuted(true);
         if (tts != null) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "liya_fullscreen");
+        if (service != null) {
+            long delay = Math.max(1200, Math.min(6000, text.length() * 60L));
+            status.postDelayed(() -> service.setOfflineVoiceMuted(false), delay);
+        }
     }
 
     private void setState(String text, float scale) {
