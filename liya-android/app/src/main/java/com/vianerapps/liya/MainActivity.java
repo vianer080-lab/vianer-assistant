@@ -250,7 +250,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
 
     @Override
     public void onInit(int statusCode) {
-        if (statusCode == TextToSpeech.SUCCESS) tts.setLanguage(new Locale("ru", "RU"));
+        if (statusCode == TextToSpeech.SUCCESS) LiyaVoice.configure(tts);
     }
 
     @Override
