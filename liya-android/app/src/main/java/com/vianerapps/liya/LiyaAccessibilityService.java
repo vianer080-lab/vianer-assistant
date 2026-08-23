@@ -39,6 +39,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private TextToSpeech backgroundTts;
     private boolean continuousVoice;
     private boolean restartingVoice;
+    private LiyaOfflineVoice offlineVoice;
     private boolean remoteTaskRunning;
     private final Runnable remotePoll = new Runnable() {
         @Override public void run() {
@@ -92,13 +93,12 @@ public class LiyaAccessibilityService extends AccessibilityService {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             return "Сначала разрешите Лии доступ к микрофону.";
         }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            return "На телефоне недоступно распознавание речи.";
-        }
         continuousVoice = true;
-        listenInBackground();
-        return "Я остаюсь активной. Можете открывать приложения и продолжать говорить со мной.";
+        if (offlineVoice == null) { offlineVoice = new LiyaOfflineVoice(this, this::handleBackgroundCommand, this::speakOfflineState); offlineVoice.start(); }
+        return "Локальный голос запускается без системных сигналов.";
     }
+
+    private void speakOfflineState(String value) { if (backgroundTts != null) backgroundTts.speak(value, TextToSpeech.QUEUE_FLUSH, null, "liya_offline_state"); }
 
     public void stopContinuousVoice() {
         continuousVoice = false;
@@ -108,6 +108,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
             backgroundRecognizer.destroy();
             backgroundRecognizer = null;
         }
+        if (offlineVoice != null) { offlineVoice.stop(); offlineVoice = null; }
     }
 
     private void listenInBackground() {
@@ -164,10 +165,11 @@ public class LiyaAccessibilityService extends AccessibilityService {
     }
 
     private void speakBackground(String text, boolean resume) {
+        if (offlineVoice != null) offlineVoice.pause(true);
         if (backgroundTts != null) backgroundTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "liya_background");
         if (resume && continuousVoice) {
             long delay = Math.max(1400, Math.min(5500, text.length() * 55L));
-            aiHandler.postDelayed(this::listenInBackground, delay);
+            aiHandler.postDelayed(() -> { if (offlineVoice != null) offlineVoice.pause(false); }, delay);
         }
     }
 
