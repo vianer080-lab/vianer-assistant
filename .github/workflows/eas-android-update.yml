@@ -9,11 +9,7 @@ on:
       - eas.json
       - app/**
       - package.json
-      - package-lock.json
       - .github/workflows/eas-android-update.yml
-
-permissions:
-  contents: write
 
 jobs:
   build:
@@ -29,22 +25,10 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm install --legacy-peer-deps
-      - name: Build signed update APK
-        run: eas build --platform android --profile preview --non-interactive --wait --json > eas-build.json
-      - name: Download signed APK
-        run: |
-          mkdir -p release
-          node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('eas-build.json','utf8')); const b=Array.isArray(d)?d[0]:d; const u=b.artifacts?.buildUrl || b.artifacts?.applicationArchiveUrl; if(!u) throw new Error('APK URL missing'); fs.writeFileSync('release/latest-apk-url.txt',u+'\n')"
-          curl -L --fail --retry 3 -o Master-Hub-1.1.0-signed.apk "$(cat release/latest-apk-url.txt)"
+      - name: Build locally with existing EAS signing key
+        run: eas build --platform android --profile preview --local --non-interactive --output Master-Hub-1.1.0-signed.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Master-Hub-1.1.0-signed
           path: Master-Hub-1.1.0-signed.apk
           if-no-files-found: error
-      - name: Publish latest APK link
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add release/latest-apk-url.txt
-          git commit -m "Publish signed Android update link" || exit 0
-          git push
