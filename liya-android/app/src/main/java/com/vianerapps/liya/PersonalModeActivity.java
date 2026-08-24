@@ -446,11 +446,8 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         if (selection != null) selection.setText(value);
         LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
         if (service != null) service.setOfflineVoiceMuted(true);
-        if (tts != null) {
-            tts.speak(value, TextToSpeech.QUEUE_FLUSH, null, "liya_personal");
-        } else if (service != null) {
-            service.setOfflineVoiceMuted(false);
-        }
+        LiyaVoice.speak(this, tts, value, "liya_personal",
+            () -> { if (service != null) service.setOfflineVoiceMuted(false); });
     }
 
     @Override
