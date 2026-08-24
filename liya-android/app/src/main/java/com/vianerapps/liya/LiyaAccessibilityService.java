@@ -114,7 +114,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         if (offlineVoice != null) offlineVoice.pause(muted);
     }
 
-    private void speakOfflineState(String value) { if (backgroundTts != null) backgroundTts.speak(value, TextToSpeech.QUEUE_FLUSH, null, "liya_offline_state"); }
+    private void speakOfflineState(String value) { LiyaVoice.speak(this, backgroundTts, value, "liya_offline_state"); }
 
     public void stopContinuousVoice() {
         continuousVoice = false;
@@ -184,11 +184,9 @@ public class LiyaAccessibilityService extends AccessibilityService {
 
     private void speakBackground(String text, boolean resume) {
         if (offlineVoice != null) offlineVoice.pause(true);
-        if (backgroundTts != null) backgroundTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "liya_background");
-        if (resume && continuousVoice) {
-            long delay = Math.max(1400, Math.min(5500, text.length() * 55L));
-            aiHandler.postDelayed(() -> { if (offlineVoice != null) offlineVoice.pause(false); }, delay);
-        }
+        LiyaVoice.speak(this, backgroundTts, text, "liya_background", () -> {
+            if (resume && continuousVoice && offlineVoice != null) offlineVoice.pause(false);
+        });
     }
 
     public String executeVoiceCommand(String rawCommand) {
