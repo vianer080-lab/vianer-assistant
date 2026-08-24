@@ -1,0 +1,40 @@
+name: Signed Android update
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - app.json
+      - eas.json
+      - app/**
+      - package.json
+      - package-lock.json
+      - .github/workflows/eas-android-update.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci --legacy-peer-deps
+      - name: Build signed update APK
+        run: eas build --platform android --profile preview --non-interactive --wait --json > eas-build.json
+      - name: Download signed APK
+        run: |
+          node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('eas-build.json','utf8')); const b=Array.isArray(d)?d[0]:d; const u=b.artifacts?.buildUrl || b.artifacts?.applicationArchiveUrl; if(!u) throw new Error('APK URL missing'); fs.writeFileSync('apk-url.txt',u)"
+          curl -L --fail --retry 3 -o Master-Hub-1.1.0-signed.apk "$(cat apk-url.txt)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Master-Hub-1.1.0-signed
+          path: Master-Hub-1.1.0-signed.apk
+          if-no-files-found: error
