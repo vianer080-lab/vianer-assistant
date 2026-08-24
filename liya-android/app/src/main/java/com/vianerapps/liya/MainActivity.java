@@ -290,7 +290,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     public void speak(String text) {
-        if (tts != null) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "liya");
+        LiyaVoice.speak(this, tts, text, "liya");
     }
 
     @Override
