@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - "app/api/**"
+      - "app/privacy.js"
+      - "app/terms.js"
       - ".github/workflows/eas-hosting.yml"
 
 concurrency:
