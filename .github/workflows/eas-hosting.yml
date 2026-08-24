@@ -72,3 +72,13 @@ jobs:
 
       - name: Deploy to EAS Hosting production
         run: eas deploy --prod --environment production --non-interactive
+
+      - name: Verify Liya neural voice
+        run: |
+          status=$(curl --silent --show-error --output /tmp/liya-voice.mp3 --write-out "%{http_code}" \
+            --request POST "https://vianer-assistant.expo.app/api/liya/speech" \
+            --header "Authorization: Bearer $LIYA_DEVICE_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data '{"text":"Лия готова к работе."}')
+          test "$status" = "200"
+          test "$(wc -c < /tmp/liya-voice.mp3)" -gt 1000
