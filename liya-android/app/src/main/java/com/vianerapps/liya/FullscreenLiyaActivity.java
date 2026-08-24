@@ -202,11 +202,8 @@ public class FullscreenLiyaActivity extends Activity implements TextToSpeech.OnI
         setState(text, 1f);
         LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
         if (service != null) service.setOfflineVoiceMuted(true);
-        if (tts != null) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "liya_fullscreen");
-        if (service != null) {
-            long delay = Math.max(1200, Math.min(6000, text.length() * 60L));
-            status.postDelayed(() -> service.setOfflineVoiceMuted(false), delay);
-        }
+        LiyaVoice.speak(this, tts, text, "liya_fullscreen",
+            () -> { if (service != null) service.setOfflineVoiceMuted(false); });
     }
 
     private void setState(String text, float scale) {
