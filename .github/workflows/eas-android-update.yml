@@ -24,12 +24,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - run: npm ci --legacy-peer-deps
+      - run: npm install --legacy-peer-deps
       - name: Build signed update APK
         run: eas build --platform android --profile preview --non-interactive --wait --json > eas-build.json
       - name: Download signed APK
