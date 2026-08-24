@@ -2,18 +2,21 @@
   "expo": {
     "name": "Vianer Assistant",
     "slug": "vianer-assistant",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "scheme": "vianerassistant",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "web": {
       "output": "server",
       "bundler": "metro"
     },
     "android": {
-      "package": "com.vianerapps.vianerassistant"
+      "package": "com.vianerapps.vianerassistant",
+      "versionCode": 2
     },
     "extra": {
       "eas": {
