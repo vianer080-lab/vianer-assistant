@@ -1,6 +1,14 @@
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 import { cleanOAuthValue, isValidOAuthState, storeOAuth } from './_shared';
 
+function safeOAuthError(payload) {
+  const code = String(payload?.error || 'unknown_error').replace(/[^a-z0-9_.-]/gi, '');
+  const description = String(payload?.error_description || '')
+    .replace(/[<>&"]/g, '')
+    .slice(0, 300);
+  return description ? `${code}: ${description}` : code;
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -41,7 +49,16 @@ export async function GET(request) {
   });
 
   if (!tokenResponse.ok) {
-    return new Response('YouTube token exchange failed.', { status: 502 });
+    let payload = {};
+    try {
+      payload = await tokenResponse.json();
+    } catch {
+      payload = { error: `http_${tokenResponse.status}` };
+    }
+    return new Response(`YouTube token exchange failed: ${safeOAuthError(payload)}`, {
+      status: 502,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
   }
 
   const token = await tokenResponse.json();
