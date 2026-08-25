@@ -5,11 +5,9 @@ const API_URL = 'https://vianer-assistant.expo.app';
 
 async function openConnection(url, label) {
   try {
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) throw new Error('unsupported');
     await Linking.openURL(url);
   } catch {
-    Alert.alert(label, 'Не удалось открыть подключение. Проверьте интернет и повторите.');
+    Alert.alert(label, 'Не удалось открыть подключение. Закройте окно и повторите.');
   }
 }
 
