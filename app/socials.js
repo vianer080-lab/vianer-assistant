@@ -14,6 +14,7 @@ async function openConnection(url, label) {
 export default function Socials() {
   const [youtube, setYoutube] = useState({ loading: true, configured: false, connected: false, channel: null });
   const [instagram, setInstagram] = useState({ loading: true, configured: false, connected: false, account: null });
+  const [facebook, setFacebook] = useState({ loading: true, configured: false, connected: false, page: null });
 
   const refreshYoutube = useCallback(async () => {
     try {
@@ -35,17 +36,29 @@ export default function Socials() {
     }
   }, []);
 
+  const refreshFacebook = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/facebook/health`, { cache: 'no-store' });
+      const data = await response.json();
+      setFacebook({ loading: false, ...data });
+    } catch {
+      setFacebook((current) => ({ ...current, loading: false }));
+    }
+  }, []);
+
   useEffect(() => {
     refreshYoutube();
     refreshInstagram();
+    refreshFacebook();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         refreshYoutube();
         refreshInstagram();
+        refreshFacebook();
       }
     });
     return () => subscription.remove();
-  }, [refreshYoutube, refreshInstagram]);
+  }, [refreshYoutube, refreshInstagram, refreshFacebook]);
 
   const networks = [
     {
@@ -63,6 +76,18 @@ export default function Socials() {
       active: youtube.connected,
       actionLabel: youtube.connected ? 'Обновить статус →' : 'Подключить YouTube →',
       action: youtube.connected ? refreshYoutube : () => openConnection(`${API_URL}/api/youtube/connect`, 'YouTube'),
+    },
+    {
+      name: 'Facebook',
+      status: facebook.loading ? 'Проверка…' : facebook.connected ? 'Подключён' : facebook.configured ? 'Готов к подключению' : 'Нужна настройка Meta',
+      detail: facebook.connected
+        ? `Страница: ${facebook.page?.name || 'Facebook'}`
+        : 'Подключение рабочей страницы MasterPick Georgia через Meta OAuth',
+      active: facebook.connected,
+      actionLabel: facebook.connected ? 'Обновить статус →' : 'Подключить Facebook →',
+      action: facebook.connected ? refreshFacebook : facebook.configured
+        ? () => openConnection(`${API_URL}/api/facebook/connect`, 'Facebook')
+        : () => Alert.alert('Facebook', 'Сначала нужно добавить ключи приложения Meta.'),
     },
     {
       name: 'Instagram',

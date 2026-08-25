@@ -1,0 +1,2 @@
+import { createState } from './_shared';
+export async function GET(){const id=String(process.env.META_APP_ID||'').trim(),redirect=String(process.env.FACEBOOK_REDIRECT_URI||'').trim();if(!id||!redirect||!process.env.META_APP_SECRET)return new Response('Facebook OAuth server configuration is incomplete.',{status:503});const p=new URLSearchParams({client_id:id,redirect_uri:redirect,response_type:'code',scope:'pages_show_list,pages_read_engagement,pages_manage_posts',state:await createState()});return Response.redirect(`https://www.facebook.com/v23.0/dialog/oauth?${p}`,302);}
