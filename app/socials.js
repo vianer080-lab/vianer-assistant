@@ -15,6 +15,7 @@ async function openConnection(url, label) {
 
 export default function Socials() {
   const [youtube, setYoutube] = useState({ loading: true, configured: false, connected: false, channel: null });
+  const [instagram, setInstagram] = useState({ loading: true, configured: false, connected: false, account: null });
 
   const refreshYoutube = useCallback(async () => {
     try {
@@ -26,11 +27,27 @@ export default function Socials() {
     }
   }, []);
 
+  const refreshInstagram = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/instagram/health`, { cache: 'no-store' });
+      const data = await response.json();
+      setInstagram({ loading: false, ...data });
+    } catch {
+      setInstagram((current) => ({ ...current, loading: false }));
+    }
+  }, []);
+
   useEffect(() => {
     refreshYoutube();
-    const subscription = AppState.addEventListener('change', (state) => state === 'active' && refreshYoutube());
+    refreshInstagram();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        refreshYoutube();
+        refreshInstagram();
+      }
+    });
     return () => subscription.remove();
-  }, [refreshYoutube]);
+  }, [refreshYoutube, refreshInstagram]);
 
   const networks = [
     {
@@ -51,10 +68,13 @@ export default function Socials() {
     },
     {
       name: 'Instagram',
-      status: 'Готов к подключению',
-      detail: 'Откроется Instagram для входа или создания рабочего аккаунта',
-      actionLabel: 'Подключить Instagram →',
-      action: () => openConnection('https://www.instagram.com/accounts/login/', 'Instagram'),
+      status: instagram.loading ? 'Проверка…' : instagram.connected ? 'Подключён' : instagram.configured ? 'Готов к подключению' : 'Нужна настройка Meta',
+      detail: instagram.connected
+        ? `Аккаунт: @${instagram.account?.username || 'Instagram'}`
+        : 'Подключение профессионального аккаунта MasterPick Global через Meta OAuth',
+      active: instagram.connected,
+      actionLabel: instagram.connected ? 'Обновить статус →' : 'Подключить Instagram →',
+      action: instagram.connected ? refreshInstagram : () => openConnection(`${API_URL}/api/instagram/connect`, 'Instagram'),
     },
     {
       name: 'Pinterest',
