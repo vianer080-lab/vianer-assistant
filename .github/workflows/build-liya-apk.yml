@@ -36,20 +36,12 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: liya-android-signing-v1
-      - name: Create signing key once
+      - name: Require the existing Liya signing key
         run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore ~/.android/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Liya Stable Android,OU=Vianer Apps,O=Vianer,L=Tbilisi,C=GE"
-          fi
+          test -f ~/.android/debug.keystore || {
+            echo "Stable signing key is unavailable; refusing to create an incompatible update."
+            exit 1
+          }
       - name: Build debug APK
         env:
           VOSK_MODEL_URL: https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
