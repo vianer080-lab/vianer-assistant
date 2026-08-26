@@ -26,6 +26,7 @@ import android.speech.tts.UtteranceProgressListener;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -210,6 +211,24 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         bottom.addView(menuButton, new LinearLayout.LayoutParams(-1, dp(48)));
         FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
         root.addView(bottom, bottomParams);
+        // Android 15 draws apps behind the phone navigation controls by default.
+        // Keep the whole personal-mode panel above that area so Menu/Lock stay tappable.
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int navigationBottom;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                navigationBottom = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+            } else {
+                navigationBottom = insets.getSystemWindowInsetBottom();
+            }
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) bottom.getLayoutParams();
+            int safeBottom = Math.max(navigationBottom, dp(8));
+            if (params.bottomMargin != safeBottom) {
+                params.bottomMargin = safeBottom;
+                bottom.setLayoutParams(params);
+            }
+            return insets;
+        });
+        root.requestApplyInsets();
         setContentView(root);
 
         personalAutoListening = true;
