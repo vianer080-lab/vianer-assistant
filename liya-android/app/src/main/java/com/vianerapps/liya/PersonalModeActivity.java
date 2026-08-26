@@ -57,6 +57,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
     private TextView selection;
     private ImageView personalImage;
     private AnimatorSet danceSet;
+    private AnimatorSet idleSet;
     private SpeechRecognizer recognizer;
     private int lastDance = 1;
     private long danceSpeed = 260;
@@ -147,6 +148,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         personalImage.setBackgroundColor(Color.rgb(3, 8, 18));
         personalImage.setImageResource(imageForOutfit(outfit));
         root.addView(personalImage, new FrameLayout.LayoutParams(-1, -1));
+        personalImage.post(this::startIdleMotion);
 
         LinearLayout bottom = new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
@@ -286,6 +288,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
     private void startDance(int dance) {
         if (personalImage == null) return;
         stopDance();
+        stopIdleMotion();
         lastDance = dance;
         if (prefs.getBoolean("learning", true)) prefs.edit().putInt("last_dance", dance).apply();
         final int[][] choreography = {
@@ -321,8 +324,40 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
             personalImage.setScaleX(1f);
             personalImage.setScaleY(1f);
             personalImage.setImageResource(imageForOutfit(outfit));
+            startIdleMotion();
         }
         refreshSelection();
+    }
+
+    private void startIdleMotion() {
+        if (personalImage == null || danceRunnable != null || isFinishing()) return;
+        stopIdleMotion();
+        ObjectAnimator breathe = ObjectAnimator.ofPropertyValuesHolder(personalImage,
+            PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.018f),
+            PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.018f),
+            PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 0f, -dp(4)));
+        breathe.setDuration(2400);
+        breathe.setRepeatCount(ObjectAnimator.INFINITE);
+        breathe.setRepeatMode(ObjectAnimator.REVERSE);
+        ObjectAnimator sway = ObjectAnimator.ofFloat(personalImage, View.ROTATION, -0.25f, 0.25f);
+        sway.setDuration(3200);
+        sway.setRepeatCount(ObjectAnimator.INFINITE);
+        sway.setRepeatMode(ObjectAnimator.REVERSE);
+        idleSet = new AnimatorSet();
+        idleSet.playTogether(breathe, sway);
+        idleSet.start();
+    }
+
+    private void stopIdleMotion() {
+        AnimatorSet running = idleSet;
+        idleSet = null;
+        if (running != null) running.cancel();
+        if (personalImage != null) {
+            personalImage.setScaleX(1f);
+            personalImage.setScaleY(1f);
+            personalImage.setTranslationY(0f);
+            personalImage.setRotation(0f);
+        }
     }
 
     private void startPersonalListening() {
@@ -605,6 +640,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
 
     @Override protected void onDestroy() {
         danceHandler.removeCallbacksAndMessages(null);
+        stopIdleMotion();
         if (recognizer != null) recognizer.destroy();
         if (tts != null) tts.shutdown();
         super.onDestroy();
