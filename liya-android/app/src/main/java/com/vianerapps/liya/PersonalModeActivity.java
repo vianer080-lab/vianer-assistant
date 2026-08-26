@@ -180,14 +180,15 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         }));
         menu.addView(button("Сменить образ", v -> {
             stopDance();
-            outfit = outfit % 5 + 1;
+            outfit = outfit % 7 + 1;
             prefs.edit().putInt("outfit", outfit).apply();
             personalImage.setImageResource(imageForOutfit(outfit));
             showAndSpeakPersonal("Переоделась.");
         }));
+        menu.addView(button("Пляжный образ", v -> showSwimsuit()));
         menu.addView(button("Приватный образ 18+", v -> {
             stopDance();
-            outfit = outfit % 5 + 1;
+            outfit = outfit % 7 + 1;
             prefs.edit().putInt("outfit", outfit).putBoolean("adult_private", true).apply();
             personalImage.setImageResource(imageForOutfit(outfit));
             showAndSpeakPersonal("Включила приватный взрослый образ без откровенного контента.");
@@ -214,10 +215,13 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         personalAutoListening = true;
         LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
         if (service != null) {
-            selection.setText(service.startContinuousVoice());
-        } else {
-            selection.setText("Включите управление экраном Лии");
+            // Personal mode owns the microphone while it is visible. Running the
+            // accessibility recognizer at the same time makes Samsung report a busy
+            // microphone and leaves the screen saying "listening" without results.
+            service.stopContinuousVoice();
         }
+        selection.setText("Лия слушает…");
+        danceHandler.postDelayed(this::startPersonalListening, 350);
     }
 
     public static boolean dispatchOfflineVoiceCommand(String command) {
@@ -236,8 +240,18 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
             case 3: return R.drawable.liya_personal_3;
             case 4: return R.drawable.liya_personal_4;
             case 5: return R.drawable.liya_personal_5;
+            case 6: return R.drawable.liya_personal_6;
+            case 7: return R.drawable.liya_personal_7;
             default: return R.drawable.liya_personal_1;
         }
+    }
+
+    private void showSwimsuit() {
+        stopDance();
+        outfit = outfit == 6 ? 7 : 6;
+        prefs.edit().putInt("outfit", outfit).apply();
+        personalImage.setImageResource(imageForOutfit(outfit));
+        showAndSpeakPersonal(outfit == 6 ? "Выбрала бирюзовый пляжный образ." : "Выбрала бордовый пляжный образ.");
     }
 
     private Button smallButton(String label, android.view.View.OnClickListener listener) {
@@ -390,9 +404,11 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         if (command.contains("стоп")) { stopDance(); showAndSpeakPersonal("Остановилась."); }
         else if (command.contains("медленнее")) { danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); showAndSpeakPersonal("Хорошо, двигаюсь медленнее."); }
         else if (command.contains("быстрее")) { danceSpeed = Math.max(100, danceSpeed - 80); startDance(lastDance); showAndSpeakPersonal("Хорошо, двигаюсь быстрее."); }
-        else if (command.contains("следующий образ") || command.contains("переоденься")) {
+        else if (command.contains("купальник") || command.contains("пляжный образ") || command.contains("на пляж")) {
+            showSwimsuit();
+        } else if (command.contains("следующий образ") || command.contains("переоденься")) {
             stopDance();
-            outfit = outfit % 5 + 1;
+            outfit = outfit % 7 + 1;
             prefs.edit().putInt("outfit", outfit).apply();
             personalImage.setImageResource(imageForOutfit(outfit));
             showAndSpeakPersonal("Переоделась. Выбрала образ " + outfit + ".");
@@ -407,7 +423,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
     private void understandPersonalCommand(String raw) {
         selection.setText("Понимаю просьбу…");
         prefs.edit().putString("last_request", raw).apply();
-        String capabilities = "Личный голосовой режим. Поддерживается обычный дружелюбный разговор и действия: выбрать танец 1-5, остановить танец, сделать быстрее или медленнее, сменить образ, сменить причёску, запомнить текущий танец. Текущие предпочтения: образ " + outfit + ", причёска " + hairstyle + ", любимый танец " + prefs.getInt("favorite_dance", 1) + ".";
+        String capabilities = "Личный голосовой режим. Поддерживается обычный дружелюбный разговор и действия: выбрать танец 1-5, остановить танец, сделать быстрее или медленнее, сменить один из 7 образов, выбрать один из 2 пляжных купальников, сменить причёску, запомнить текущий танец. Текущие предпочтения: образ " + outfit + ", причёска " + hairstyle + ", любимый танец " + prefs.getInt("favorite_dance", 1) + ".";
         LiyaAiClient.request(raw, "com.vianerapps.liya.personal", capabilities, action -> {
             switch (action.name) {
                 case "personal_dance_1": startDance(1); showAndSpeakPersonal("Включаю первый танец."); break;
@@ -420,10 +436,13 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
                 case "personal_slower": danceSpeed = Math.min(1500, danceSpeed + 220); startDance(lastDance); showAndSpeakPersonal("Двигаюсь медленнее."); break;
                 case "personal_next_outfit":
                     stopDance();
-                    outfit = outfit % 5 + 1;
+                    outfit = outfit % 7 + 1;
                     prefs.edit().putInt("outfit", outfit).apply();
                     personalImage.setImageResource(imageForOutfit(outfit));
                     showAndSpeakPersonal("Переоделась. Выбрала образ " + outfit + ".");
+                    break;
+                case "personal_swimsuit":
+                    showSwimsuit();
                     break;
                 case "personal_next_hair":
                     hairstyle = hairstyle % 5 + 1;
@@ -444,10 +463,18 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
 
     private void showAndSpeakPersonal(String value) {
         if (selection != null) selection.setText(value);
+        if (recognizer != null) {
+            recognizer.cancel();
+            recognizer.destroy();
+            recognizer = null;
+        }
         LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
         if (service != null) service.setOfflineVoiceMuted(true);
         LiyaVoice.speak(this, tts, value, "liya_personal",
-            () -> { if (service != null) service.setOfflineVoiceMuted(false); });
+            () -> {
+                if (service != null) service.setOfflineVoiceMuted(false);
+                if (personalAutoListening && unlocked) danceHandler.postDelayed(this::startPersonalListening, 250);
+            });
     }
 
     @Override
@@ -469,7 +496,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
     }
 
     private void refreshSelection() {
-        if (selection != null) selection.setText("Причёска " + hairstyle + " из 5   ·   Образ " + outfit + " из 5");
+        if (selection != null) selection.setText("Причёска " + hairstyle + " из 5   ·   Образ " + outfit + " из 7");
     }
 
     private LinearLayout base(String titleValue, String subtitleValue) {
@@ -546,6 +573,9 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
             personalAutoListening = false;
             stopDance();
             if (recognizer != null) recognizer.destroy();
+            recognizer = null;
+            LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+            if (service != null) service.startContinuousVoice();
             unlocked = false;
             finish();
         }
