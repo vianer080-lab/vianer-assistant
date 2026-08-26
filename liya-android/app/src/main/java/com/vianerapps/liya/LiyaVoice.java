@@ -31,8 +31,8 @@ final class LiyaVoice {
         if (tts == null) return;
         Locale russian = new Locale("ru", "RU");
         tts.setLanguage(russian);
-        tts.setSpeechRate(0.92f);
-        tts.setPitch(1.13f);
+        tts.setSpeechRate(1.06f);
+        tts.setPitch(1.05f);
 
         Set<Voice> voices = tts.getVoices();
         if (voices == null) return;
@@ -80,8 +80,8 @@ final class LiyaVoice {
                 String endpoint = configured.getProtocol() + "://" + configured.getAuthority() + "/api/liya/speech";
                 HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
                 connection.setRequestMethod("POST");
-                connection.setConnectTimeout(12000);
-                connection.setReadTimeout(30000);
+                connection.setConnectTimeout(6000);
+                connection.setReadTimeout(16000);
                 connection.setRequestProperty("Content-Type", "application/json");
                 connection.setRequestProperty("Authorization", "Bearer " + BuildConfig.LIYA_DEVICE_TOKEN);
                 connection.setDoOutput(true);
@@ -138,6 +138,6 @@ final class LiyaVoice {
 
     private static void speakFallback(TextToSpeech fallback, String text, String utteranceId, Runnable onDone) {
         if (fallback != null) fallback.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId);
-        if (onDone != null) MAIN.postDelayed(onDone, Math.max(1300, Math.min(7000, text.length() * 65L)));
+        if (onDone != null) MAIN.postDelayed(onDone, Math.max(900, Math.min(5000, text.length() * 48L)));
     }
 }
