@@ -43,8 +43,8 @@ public final class LiyaAiClient {
             try {
                 HttpURLConnection connection = (HttpURLConnection) new URL(BuildConfig.LIYA_API_URL).openConnection();
                 connection.setRequestMethod("POST");
-                connection.setConnectTimeout(15000);
-                connection.setReadTimeout(30000);
+                connection.setConnectTimeout(7000);
+                connection.setReadTimeout(18000);
                 connection.setRequestProperty("Content-Type", "application/json");
                 connection.setRequestProperty("Authorization", "Bearer " + BuildConfig.LIYA_DEVICE_TOKEN);
                 connection.setDoOutput(true);
