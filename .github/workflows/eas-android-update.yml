@@ -26,9 +26,9 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm install --legacy-peer-deps
       - name: Build locally with existing EAS signing key
-        run: eas build --platform android --profile preview --local --non-interactive --output Master-Hub-1.1.0-signed.apk
+        run: eas build --platform android --profile preview --local --non-interactive --output Master-Hub-1.1.1-signed.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Master-Hub-1.1.0-signed
-          path: Master-Hub-1.1.0-signed.apk
+          name: Master-Hub-1.1.1-signed
+          path: Master-Hub-1.1.1-signed.apk
           if-no-files-found: error
