@@ -16,9 +16,9 @@ export async function POST(request) {
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'gpt-4o-mini-tts',
-      voice: 'coral',
+      voice: 'shimmer',
       input: text,
-      instructions: 'Говори по-русски естественным мягким женским голосом. Тон тёплый, умный и спокойный. Не торопись, но не делай длинных пауз.',
+      instructions: 'Говори по-русски естественным молодым женским голосом, примерно 25–30 лет. Тон уверенный, дружелюбный и живой. Темп чуть быстрее обычного, без растягивания слов и длинных пауз. Не изображай пожилой голос.',
       response_format: 'mp3',
     }),
   });
@@ -30,4 +30,3 @@ export async function POST(request) {
     },
   });
 }
-
