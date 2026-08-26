@@ -5,44 +5,54 @@ const API_URL = 'https://vianer-assistant.expo.app';
 
 async function openConnection(url, label) {
   try {
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) throw new Error('unsupported_url');
     await Linking.openURL(url);
-  } catch {
-    Alert.alert(label, 'Не удалось открыть подключение. Закройте окно и повторите.');
+    return true;
+  } catch (error) {
+    Alert.alert(label, 'Не удалось открыть подключение. Проверьте интернет и повторите.');
+    return false;
   }
+}
+
+async function loadHealth(path) {
+  const response = await fetch(`${API_URL}${path}?t=${Date.now()}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
 }
 
 export default function Socials() {
   const [youtube, setYoutube] = useState({ loading: true, configured: false, connected: false, channel: null });
   const [instagram, setInstagram] = useState({ loading: true, configured: false, connected: false, account: null });
   const [facebook, setFacebook] = useState({ loading: true, configured: false, connected: false, page: null });
+  const [opening, setOpening] = useState(null);
 
   const refreshYoutube = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/youtube/health`, { cache: 'no-store' });
-      const data = await response.json();
+      const data = await loadHealth('/api/youtube/health');
       setYoutube({ loading: false, ...data });
     } catch {
-      setYoutube((current) => ({ ...current, loading: false }));
+      setYoutube((current) => ({ ...current, loading: false, error: true }));
     }
   }, []);
 
   const refreshInstagram = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/instagram/health`, { cache: 'no-store' });
-      const data = await response.json();
+      const data = await loadHealth('/api/instagram/health');
       setInstagram({ loading: false, ...data });
     } catch {
-      setInstagram((current) => ({ ...current, loading: false }));
+      setInstagram((current) => ({ ...current, loading: false, error: true }));
     }
   }, []);
 
   const refreshFacebook = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/facebook/health`, { cache: 'no-store' });
-      const data = await response.json();
+      const data = await loadHealth('/api/facebook/health');
       setFacebook({ loading: false, ...data });
     } catch {
-      setFacebook((current) => ({ ...current, loading: false }));
+      setFacebook((current) => ({ ...current, loading: false, error: true }));
     }
   }, []);
 
@@ -60,6 +70,13 @@ export default function Socials() {
     return () => subscription.remove();
   }, [refreshYoutube, refreshInstagram, refreshFacebook]);
 
+  const connect = useCallback(async (service, url, label) => {
+    if (opening) return;
+    setOpening(service);
+    await openConnection(url, label);
+    setOpening(null);
+  }, [opening]);
+
   const networks = [
     {
       name: 'Telegram',
@@ -71,11 +88,13 @@ export default function Socials() {
     },
     {
       name: 'YouTube',
-      status: youtube.loading ? 'Проверка…' : youtube.connected ? 'Подключён' : 'Готов к подключению',
+      status: youtube.loading ? 'Проверка…' : youtube.error ? 'Нет связи' : youtube.connected ? 'Подключён' : youtube.configured ? 'Готов к подключению' : 'Нужна настройка',
       detail: youtube.connected ? `Канал: ${youtube.channel?.title || 'YouTube'}` : 'Нажмите и подтвердите доступ к нужному каналу Google',
       active: youtube.connected,
-      actionLabel: youtube.connected ? 'Обновить статус →' : 'Подключить YouTube →',
-      action: youtube.connected ? refreshYoutube : () => openConnection(`${API_URL}/api/youtube/connect`, 'YouTube'),
+      actionLabel: youtube.connected ? 'Обновить статус →' : opening === 'youtube' ? 'Открываю…' : 'Подключить YouTube →',
+      action: youtube.connected ? refreshYoutube : youtube.configured
+        ? () => connect('youtube', `${API_URL}/api/youtube/connect`, 'YouTube')
+        : () => Alert.alert('YouTube', 'Сервер подключения YouTube ещё не настроен.'),
     },
     {
       name: 'Facebook',
@@ -84,9 +103,9 @@ export default function Socials() {
         ? `Страница: ${facebook.page?.name || 'Facebook'}`
         : 'Подключение рабочей страницы MasterPick Georgia через Meta OAuth',
       active: facebook.connected,
-      actionLabel: facebook.connected ? 'Обновить статус →' : 'Подключить Facebook →',
+      actionLabel: facebook.connected ? 'Обновить статус →' : opening === 'facebook' ? 'Открываю…' : 'Подключить Facebook →',
       action: facebook.connected ? refreshFacebook : facebook.configured
-        ? () => openConnection(`${API_URL}/api/facebook/connect`, 'Facebook')
+        ? () => connect('facebook', `${API_URL}/api/facebook/connect`, 'Facebook')
         : () => Alert.alert('Facebook', 'Сначала нужно добавить ключи приложения Meta.'),
     },
     {
@@ -96,22 +115,24 @@ export default function Socials() {
         ? `Аккаунт: @${instagram.account?.username || 'Instagram'}`
         : 'Подключение профессионального аккаунта MasterPick Global через Meta OAuth',
       active: instagram.connected,
-      actionLabel: instagram.connected ? 'Обновить статус →' : 'Подключить Instagram →',
-      action: instagram.connected ? refreshInstagram : () => openConnection(`${API_URL}/api/instagram/connect`, 'Instagram'),
+      actionLabel: instagram.connected ? 'Обновить статус →' : opening === 'instagram' ? 'Открываю…' : 'Подключить Instagram →',
+      action: instagram.connected ? refreshInstagram : instagram.configured
+        ? () => connect('instagram', `${API_URL}/api/instagram/connect`, 'Instagram')
+        : () => Alert.alert('Instagram', 'Сервер Meta ещё не настроен. Нужны Instagram App ID и Secret.'),
     },
     {
       name: 'Pinterest',
-      status: 'Готов к подключению',
-      detail: 'Откроется существующий аккаунт Pinterest для подтверждения',
-      actionLabel: 'Подключить Pinterest →',
+      status: 'Аккаунт создан',
+      detail: 'Открывает существующий аккаунт Pinterest. Автопубликацию подключим через API.',
+      actionLabel: 'Открыть Pinterest →',
       action: () => openConnection('https://www.pinterest.com/login/', 'Pinterest'),
     },
     {
       name: 'WhatsApp Business',
-      status: 'Готов к подключению',
-      detail: 'Откроется WhatsApp Business на этом телефоне',
-      actionLabel: 'Подключить WhatsApp Business →',
-      action: () => openConnection('whatsapp://send', 'WhatsApp Business'),
+      status: 'Установлен на телефоне',
+      detail: 'Открывает WhatsApp Business. API-подключение будет отдельным этапом.',
+      actionLabel: 'Открыть WhatsApp Business →',
+      action: () => openConnection('https://wa.me/', 'WhatsApp Business'),
     },
   ];
 
@@ -119,7 +140,7 @@ export default function Socials() {
     <Text style={s.kicker}>СОЦСЕТИ</Text>
     <Text style={s.title}>Каналы</Text>
     <Text style={s.subtitle}>Нажмите нужную площадку, войдите в аккаунт и подтвердите разрешения.</Text>
-    {networks.map((n) => <TouchableOpacity key={n.name} style={s.card} activeOpacity={0.7} onPress={n.action}>
+    {networks.map((n) => <TouchableOpacity key={n.name} style={s.card} activeOpacity={0.7} onPress={n.action} disabled={Boolean(opening)}>
       <View style={s.row}><Text style={s.name}>{n.name}</Text><View style={[s.badge,n.active?s.good:s.ready]}><Text style={s.badgeText}>{n.status}</Text></View></View>
       <Text style={s.detail}>{n.detail}</Text>
       <Text style={s.open}>{n.actionLabel}</Text>
