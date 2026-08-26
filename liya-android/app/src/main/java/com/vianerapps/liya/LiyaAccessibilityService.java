@@ -32,8 +32,10 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -52,6 +54,9 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private String previousAiScreen = "";
     private String lastAiResult = "";
     private int unchangedAiSteps;
+    private final Map<String, Integer> aiScreenVisits = new HashMap<>();
+    private String lastAiActionSignature = "";
+    private int repeatedAiActionCount;
     private boolean activeAiApproved;
     private SpeechRecognizer backgroundRecognizer;
     private TextToSpeech backgroundTts;
@@ -149,7 +154,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
                     : instruction;
                 aiHandler.postDelayed(
                     () -> executeAiCommand(goal, task.approved, result -> finishRemoteTask(task, result)),
-                    1800
+                    1100
                 );
             });
             return;
@@ -163,7 +168,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         if (multiStep && answer.startsWith("Открываю ")) {
             aiHandler.postDelayed(
                 () -> executeAiCommand(instruction, task.approved, result -> finishRemoteTask(task, result)),
-                1800
+                1100
             );
             return;
         }
@@ -434,6 +439,9 @@ public class LiyaAccessibilityService extends AccessibilityService {
         previousAiScreen = "";
         lastAiResult = "Начало задачи";
         unchangedAiSteps = 0;
+        aiScreenVisits.clear();
+        lastAiActionSignature = "";
+        repeatedAiActionCount = 0;
         requestNextAiStep(callback);
     }
 
@@ -455,12 +463,29 @@ public class LiyaAccessibilityService extends AccessibilityService {
             return;
         }
         String currentScreen = collectScreenText();
+        String normalizedCurrent = normalizeScreen(currentScreen);
+        int visits = aiScreenVisits.getOrDefault(normalizedCurrent, 0) + 1;
+        aiScreenVisits.put(normalizedCurrent, visits);
+        if (!normalizedCurrent.isEmpty() && visits >= 3) {
+            activeAiTask = "";
+            callback.accept("Я вернулась на тот же экран несколько раз и остановилась, чтобы не ходить по кругу. Нужен другой путь или ваше уточнение.");
+            return;
+        }
         if (!previousAiScreen.isEmpty() && normalizeScreen(previousAiScreen).equals(normalizeScreen(currentScreen))) unchangedAiSteps++;
         else unchangedAiSteps = 0;
         if (unchangedAiSteps >= 3) lastAiResult = "Экран не изменился после нескольких попыток. Выбери другой путь, прокрутку или кнопку.";
         String memory = getSharedPreferences("liya_agent_memory", MODE_PRIVATE).getString("last_success", "");
         aiStep++;
         LiyaAiClient.request(activeAiTask, packageName, currentScreen, previousAiScreen, lastAiResult, memory, aiStep, activeAiApproved, action -> {
+            String signature = action.name + "|" + action.target + "|" + action.text;
+            if (signature.equals(lastAiActionSignature) && unchangedAiSteps > 0) repeatedAiActionCount++;
+            else repeatedAiActionCount = 0;
+            lastAiActionSignature = signature;
+            if (repeatedAiActionCount >= 1) {
+                activeAiTask = "";
+                callback.accept("Эта кнопка не сработала. Я не буду нажимать её снова и снова; остановилась на текущем экране.");
+                return;
+            }
             String result = executeAiAction(action);
             previousAiScreen = currentScreen;
             lastAiResult = result;
@@ -470,7 +495,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
                 callback.accept(result);
                 return;
             }
-            aiHandler.postDelayed(() -> requestNextAiStep(callback), action.name.startsWith("scroll") ? 700 : 500);
+            aiHandler.postDelayed(() -> requestNextAiStep(callback), action.name.startsWith("scroll") ? 450 : 280);
         }, error -> {
             activeAiTask = "";
             callback.accept(error);
