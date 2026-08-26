@@ -421,7 +421,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
     }
 
     private void understandPersonalCommand(String raw) {
-        selection.setText("Понимаю просьбу…");
+        selection.setText("Отвечаю…");
         prefs.edit().putString("last_request", raw).apply();
         String capabilities = "Личный голосовой режим. Поддерживается обычный дружелюбный разговор и действия: выбрать танец 1-5, остановить танец, сделать быстрее или медленнее, сменить один из 7 образов, выбрать один из 2 пляжных купальников, сменить причёску, запомнить текущий танец. Текущие предпочтения: образ " + outfit + ", причёска " + hairstyle + ", любимый танец " + prefs.getInt("favorite_dance", 1) + ".";
         LiyaAiClient.request(raw, "com.vianerapps.liya.personal", capabilities, action -> {
@@ -462,7 +462,9 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
     }
 
     private void showAndSpeakPersonal(String value) {
-        if (selection != null) selection.setText(value);
+        // Personal mode is voice-first: do not cover the portrait with the
+        // transcript or internal AI wording. Only a short state is shown.
+        if (selection != null) selection.setText("Отвечаю голосом…");
         if (recognizer != null) {
             recognizer.cancel();
             recognizer.destroy();
@@ -473,6 +475,7 @@ public class PersonalModeActivity extends Activity implements TextToSpeech.OnIni
         LiyaVoice.speak(this, tts, value, "liya_personal",
             () -> {
                 if (service != null) service.setOfflineVoiceMuted(false);
+                if (selection != null) selection.setText("Слушаю…");
                 if (personalAutoListening && unlocked) danceHandler.postDelayed(this::startPersonalListening, 250);
             });
     }
