@@ -29,11 +29,11 @@ public final class LiyaAiClient {
     }
 
     public static void request(String command, String packageName, String screen, Consumer<Action> success, Consumer<String> failure) {
-        request(command, packageName, screen, "", "", "", 0, success, failure);
+        request(command, packageName, screen, "", "", "", 0, false, success, failure);
     }
 
     public static void request(String command, String packageName, String screen, String previousScreen,
-                               String lastResult, String memory, int step,
+                               String lastResult, String memory, int step, boolean approved,
                                Consumer<Action> success, Consumer<String> failure) {
         if (BuildConfig.LIYA_API_URL.isEmpty() || BuildConfig.LIYA_DEVICE_TOKEN.isEmpty()) {
             failure.accept("Связь со мной ещё не активирована на сервере.");
@@ -56,6 +56,7 @@ public final class LiyaAiClient {
                 payload.put("lastResult", lastResult);
                 payload.put("memory", memory);
                 payload.put("step", step);
+                payload.put("approved", approved);
                 byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
                 try (OutputStream output = connection.getOutputStream()) { output.write(bytes); }
                 if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) throw new Exception("HTTP " + connection.getResponseCode());

@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.speech.RecognitionListener;
@@ -34,15 +35,29 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         super.onCreate(savedInstanceState);
         tts = new TextToSpeech(this, this, LiyaVoice.GOOGLE_ENGINE);
         buildLargePrintUi();
+        showAttentionMessage(getIntent());
         ensureMicrophonePermission();
+        ensureNotificationPermission();
         if (getIntent().getBooleanExtra("listen_now", false)) startListening();
+    }
+
+    private void ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 12);
+        }
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        showAttentionMessage(intent);
         if (intent.getBooleanExtra("listen_now", false)) startListening();
+    }
+
+    private void showAttentionMessage(Intent intent) {
+        String message = intent == null ? "" : intent.getStringExtra("attention_message");
+        if (message != null && !message.isEmpty() && status != null) status.setText("Лия остановилась и ждёт вас:\n" + message);
     }
 
     private void buildLargePrintUi() {
@@ -70,6 +85,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }));
         content.addView(button("2. Включить постоянный голос", v -> startPersistentAssistant()));
         content.addView(button(LiyaRemoteClient.isPaired(this) ? "Vianer Assistant подключён" : "Подключить Vianer Assistant", v -> showPairingDialog()));
+        content.addView(button("Работай сейчас — телефон свободен", v -> toggleWorkNow()));
         content.addView(button("Проверить готовность Лии", v -> runDiagnostics()));
         content.addView(button("Разовая голосовая команда", v -> startListening()));
         content.addView(button("Лия на весь экран", v -> {
@@ -117,6 +133,19 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
         if (service != null && LiyaRemoteClient.isPaired(this)) service.syncRemoteNow();
         speak(microphone && screen ? "Основные разрешения готовы." : "Не все разрешения включены. Посмотрите отчёт на экране.");
+    }
+
+    private void toggleWorkNow() {
+        LiyaAccessibilityService service = LiyaAccessibilityService.getInstance();
+        if (service == null) {
+            status.setText("Сначала включите управление экраном для Лии.");
+            return;
+        }
+        boolean enabled = !service.isWorkNowEnabled();
+        service.setWorkNow(enabled);
+        status.setText(enabled
+            ? "Лия работает тихо. Положите разблокированный телефон на стол. Входящий звонок временно остановит работу."
+            : "Автоматическая работа остановлена.");
     }
 
     private void addAppStatus(StringBuilder out, String label, String... packages) {

@@ -2,13 +2,23 @@ package com.vianerapps.liya;
 
 import android.Manifest;
 import android.accessibilityservice.AccessibilityService;
+import android.content.ClipData;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.app.KeyguardManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.net.Uri;
+import android.os.Build;
+import android.os.PowerManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.provider.MediaStore;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -24,6 +34,10 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.function.Consumer;
 
 public class LiyaAccessibilityService extends AccessibilityService {
@@ -38,15 +52,20 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private String previousAiScreen = "";
     private String lastAiResult = "";
     private int unchangedAiSteps;
+    private boolean activeAiApproved;
     private SpeechRecognizer backgroundRecognizer;
     private TextToSpeech backgroundTts;
     private boolean continuousVoice;
     private boolean restartingVoice;
     private LiyaOfflineVoice offlineVoice;
     private boolean remoteTaskRunning;
+    private long lastUserInteractionAt = System.currentTimeMillis();
+    private static final long REMOTE_IDLE_DELAY_MS = 45_000L;
     private final Runnable remotePoll = new Runnable() {
         @Override public void run() {
-            if (!remoteTaskRunning) LiyaRemoteClient.poll(LiyaAccessibilityService.this, LiyaAccessibilityService.this::runRemoteTask);
+            if (!remoteTaskRunning && isDeviceIdleForRemoteTask()) {
+                LiyaRemoteClient.poll(LiyaAccessibilityService.this, LiyaAccessibilityService.this::runRemoteTask);
+            }
             // Keep remote commands responsive while the accessibility service is alive.
             aiHandler.postDelayed(this, remoteTaskRunning ? 900 : 1500);
         }
@@ -75,7 +94,11 @@ public class LiyaAccessibilityService extends AccessibilityService {
     }
 
     @Override
-    public void onAccessibilityEvent(AccessibilityEvent event) { }
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (!remoteTaskRunning && event != null && event.getEventType() == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            lastUserInteractionAt = System.currentTimeMillis();
+        }
+    }
 
     @Override
     public void onInterrupt() { }
@@ -84,20 +107,169 @@ public class LiyaAccessibilityService extends AccessibilityService {
         if (!remoteTaskRunning) LiyaRemoteClient.poll(this, this::runRemoteTask);
     }
 
+    public void setWorkNow(boolean enabled) {
+        getSharedPreferences("liya_vianer_link", MODE_PRIVATE).edit().putBoolean("work_now", enabled).apply();
+        lastUserInteractionAt = enabled ? 0L : System.currentTimeMillis();
+        if (enabled) syncRemoteNow();
+    }
+
+    public boolean isWorkNowEnabled() {
+        return getSharedPreferences("liya_vianer_link", MODE_PRIVATE).getBoolean("work_now", false);
+    }
+
+    private boolean isDeviceIdleForRemoteTask() {
+        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
+        KeyguardManager keyguard = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        boolean interactive = power != null && power.isInteractive();
+        boolean unlocked = keyguard == null || !keyguard.isKeyguardLocked();
+        return interactive && unlocked && !isCallScreenOpen()
+            && (isWorkNowEnabled() || System.currentTimeMillis() - lastUserInteractionAt >= REMOTE_IDLE_DELAY_MS);
+    }
+
+    private boolean isCallScreenOpen() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null || root.getPackageName() == null) return false;
+        String pkg = root.getPackageName().toString().toLowerCase(Locale.ROOT);
+        return pkg.contains("incallui") || pkg.contains("dialer") || pkg.contains("telecom") || pkg.contains("phone");
+    }
+
     private void runRemoteTask(LiyaRemoteClient.Task task) {
         if (remoteTaskRunning) return;
         remoteTaskRunning = true;
-        String answer = executeVoiceCommand(task.instruction);
-        if (answer.startsWith("Эту команду я пока не умею")) {
-            executeAiCommand(task.instruction, result -> finishRemoteTask(task.id, result));
-        } else finishRemoteTask(task.id, answer);
+        String instruction = task.instruction == null ? "" : task.instruction.trim();
+
+        if (!task.attachmentUrl.isEmpty()) {
+            shareRemoteAttachment(task, shareResult -> {
+                if (shareResult.startsWith("Ошибка")) {
+                    finishRemoteTask(task, shareResult);
+                    return;
+                }
+                String goal = instruction.isEmpty()
+                    ? "Опубликуй подготовленный материал в открытом приложении."
+                    : instruction;
+                aiHandler.postDelayed(
+                    () -> executeAiCommand(goal, task.approved, result -> finishRemoteTask(task, result)),
+                    1800
+                );
+            });
+            return;
+        }
+
+        boolean multiStep = instruction.length() > 70;
+        String answer = executeVoiceCommand(instruction);
+
+        // Opening the requested app is only the first step of a remote task.
+        // Wait for its UI and continue the original instruction on that screen.
+        if (multiStep && answer.startsWith("Открываю ")) {
+            aiHandler.postDelayed(
+                () -> executeAiCommand(instruction, task.approved, result -> finishRemoteTask(task, result)),
+                1800
+            );
+            return;
+        }
+
+        // Long remote instructions describe a goal, not the literal label of one button.
+        // If the fast local parser cannot complete them, hand the whole goal to the screen agent.
+        if (answer.startsWith("Эту команду я пока не умею") ||
+            (multiStep && (answer.startsWith("Не нашла") || answer.startsWith("На этой странице не вижу")))) {
+            executeAiCommand(instruction, task.approved, result -> finishRemoteTask(task, result));
+        } else finishRemoteTask(task, answer);
     }
 
-    private void finishRemoteTask(long taskId, String result) {
-        String status = result.toLowerCase(Locale.ROOT).contains("подтвержден") || result.toLowerCase(Locale.ROOT).contains("подтверждение") ? "needs_confirmation" : "completed";
-        LiyaRemoteClient.report(this, taskId, status, result);
-        speakBackground(result, continuousVoice);
+    private void finishRemoteTask(LiyaRemoteClient.Task task, String result) {
+        String lowerResult = result.toLowerCase(Locale.ROOT);
+        boolean needsAttention = lowerResult.contains("подтвержден") || lowerResult.contains("подтверждение")
+            || lowerResult.contains("парол") || lowerResult.contains("одноразов")
+            || lowerResult.contains("код") || lowerResult.contains("защит");
+        String status = needsAttention ? "needs_confirmation" : "completed";
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        String packageName = root != null && root.getPackageName() != null ? root.getPackageName().toString() : "";
+        LiyaRemoteClient.report(this, task.id, status, result, packageName, collectScreenText());
+        if (needsAttention) showAttentionNotification(result);
+        else if (!task.silent) speakBackground(result, continuousVoice);
+        if (task.silent && "completed".equals(status)) performGlobalAction(GLOBAL_ACTION_HOME);
         remoteTaskRunning = false;
+        lastUserInteractionAt = System.currentTimeMillis();
+    }
+
+    private void showAttentionNotification(String result) {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        String channelId = "liya_attention";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(channelId, "Лия — требуется действие", NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("Пароль, код или подтверждение, которое Лия не вводит сама");
+            manager.createNotificationChannel(channel);
+        }
+        Intent open = new Intent(this, MainActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra("attention_message", result);
+        PendingIntent pending = PendingIntent.getActivity(this, 401, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification notification = new Notification.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Лие нужна ваша помощь")
+            .setContentText(result)
+            .setStyle(new Notification.BigTextStyle().bigText(result))
+            .setContentIntent(pending)
+            .setAutoCancel(true)
+            .build();
+        manager.notify(401, notification);
+    }
+
+    private void shareRemoteAttachment(LiyaRemoteClient.Task task, Consumer<String> callback) {
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    throw new Exception("Нужна Android 10 или новее");
+                }
+                URL url = new URL(task.attachmentUrl);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(30000);
+                connection.setInstanceFollowRedirects(true);
+                String mime = connection.getContentType();
+                if (mime == null || !mime.startsWith("image/")) mime = "image/png";
+                String extension = mime.contains("jpeg") ? ".jpg" : ".png";
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Images.Media.DISPLAY_NAME, "MasterPick-" + task.id + extension);
+                values.put(MediaStore.Images.Media.MIME_TYPE, mime);
+                values.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/MasterPick");
+                values.put(MediaStore.Images.Media.IS_PENDING, 1);
+                Uri media = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                if (media == null) throw new Exception("не удалось создать файл");
+                try (InputStream input = connection.getInputStream(); OutputStream output = getContentResolver().openOutputStream(media)) {
+                    if (output == null) throw new Exception("не удалось открыть файл");
+                    byte[] buffer = new byte[16 * 1024];
+                    int read;
+                    while ((read = input.read(buffer)) >= 0) output.write(buffer, 0, read);
+                }
+                values.clear();
+                values.put(MediaStore.Images.Media.IS_PENDING, 0);
+                getContentResolver().update(media, values, null, null);
+
+                String target = task.targetPackage;
+                if (target.isEmpty()) {
+                    String lower = task.instruction.toLowerCase(Locale.ROOT);
+                    if (lower.contains("facebook") || lower.contains("фейсбук")) target = "com.facebook.katana";
+                    else target = "com.instagram.android";
+                }
+                Intent share = new Intent(Intent.ACTION_SEND);
+                share.setType(mime);
+                share.putExtra(Intent.EXTRA_STREAM, media);
+                if (!task.caption.isEmpty()) share.putExtra(Intent.EXTRA_TEXT, task.caption);
+                share.setClipData(ClipData.newRawUri("MasterPick", media));
+                share.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                if (getPackageManager().getLaunchIntentForPackage(target) != null) share.setPackage(target);
+                startActivity(share);
+                aiHandler.post(() -> callback.accept("Материал загружен и открыт для публикации."));
+            } catch (Exception error) {
+                String message = error.getMessage() == null ? "неизвестная ошибка" : error.getMessage();
+                aiHandler.post(() -> callback.accept("Ошибка загрузки материала: " + message));
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }).start();
     }
 
     public String startContinuousVoice() {
@@ -251,8 +423,13 @@ public class LiyaAccessibilityService extends AccessibilityService {
     }
 
     public void executeAiCommand(String command, Consumer<String> callback) {
+        executeAiCommand(command, false, callback);
+    }
+
+    public void executeAiCommand(String command, boolean approved, Consumer<String> callback) {
         aiCancelled = false;
         activeAiTask = command;
+        activeAiApproved = approved;
         aiStep = 0;
         previousAiScreen = "";
         lastAiResult = "Начало задачи";
@@ -283,7 +460,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
         if (unchangedAiSteps >= 3) lastAiResult = "Экран не изменился после нескольких попыток. Выбери другой путь, прокрутку или кнопку.";
         String memory = getSharedPreferences("liya_agent_memory", MODE_PRIVATE).getString("last_success", "");
         aiStep++;
-        LiyaAiClient.request(activeAiTask, packageName, currentScreen, previousAiScreen, lastAiResult, memory, aiStep, action -> {
+        LiyaAiClient.request(activeAiTask, packageName, currentScreen, previousAiScreen, lastAiResult, memory, aiStep, activeAiApproved, action -> {
             String result = executeAiAction(action);
             previousAiScreen = currentScreen;
             lastAiResult = result;
@@ -307,6 +484,7 @@ public class LiyaAccessibilityService extends AccessibilityService {
     private void stopAiTask() {
         aiCancelled = true;
         activeAiTask = "";
+        activeAiApproved = false;
         // Do not remove the remote polling and voice callbacks owned by this handler.
     }
 

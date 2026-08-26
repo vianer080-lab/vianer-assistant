@@ -22,8 +22,23 @@ final class LiyaRemoteClient {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     static final class Task {
-        final long id; final String instruction;
-        Task(long id, String instruction) { this.id = id; this.instruction = instruction; }
+        final long id;
+        final String instruction;
+        final String attachmentUrl;
+        final String caption;
+        final String targetPackage;
+        final boolean approved;
+        final boolean silent;
+
+        Task(JSONObject json) {
+            id = json.optLong("id");
+            instruction = json.optString("instruction");
+            attachmentUrl = json.optString("attachment_url");
+            caption = json.optString("caption");
+            targetPackage = json.optString("target_package");
+            approved = json.optBoolean("approved", false);
+            silent = json.optBoolean("silent", true);
+        }
     }
 
     static boolean isPaired(Context context) { return !prefs(context).getString(TOKEN, "").isEmpty(); }
@@ -48,16 +63,25 @@ final class LiyaRemoteClient {
             try {
                 JSONObject response = post(new JSONObject().put("action", "poll").put("device_token", token), token);
                 JSONObject task = response.optJSONObject("task");
-                if (task != null) MAIN.post(() -> callback.accept(new Task(task.optLong("id"), task.optString("instruction"))));
+                if (task != null) MAIN.post(() -> callback.accept(new Task(task)));
             } catch (Exception ignored) { }
         }).start();
     }
 
-    static void report(Context context, long taskId, String status, String result) {
+    static void report(Context context, long taskId, String status, String result, String packageName, String screen) {
         String token = prefs(context).getString(TOKEN, "");
         if (token.isEmpty()) return;
         new Thread(() -> {
-            try { post(new JSONObject().put("action", "report").put("device_token", token).put("task_id", taskId).put("status", status).put("result", result), token); }
+            try {
+                post(new JSONObject()
+                    .put("action", "report")
+                    .put("device_token", token)
+                    .put("task_id", taskId)
+                    .put("status", status)
+                    .put("result", result)
+                    .put("package_name", packageName)
+                    .put("screen", screen), token);
+            }
             catch (Exception ignored) { }
         }).start();
     }
