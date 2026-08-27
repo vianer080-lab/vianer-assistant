@@ -186,15 +186,26 @@ public class LiyaAccessibilityService extends AccessibilityService {
         boolean needsAttention = lowerResult.contains("подтвержден") || lowerResult.contains("подтверждение")
             || lowerResult.contains("парол") || lowerResult.contains("одноразов")
             || lowerResult.contains("код") || lowerResult.contains("защит");
-        String status = needsAttention ? "needs_confirmation" : "completed";
+        boolean failed = containsAny(lowerResult,
+            "не удалось", "ошибка", "не смог", "не сработал", "не нашла", "не вижу",
+            "остановил", "по кругу", "много шагов", "связь со мной ещё не активирована",
+            "задача остановлена", "нужен другой путь");
+        String status = needsAttention ? "needs_confirmation" : failed ? "failed" : "completed";
         AccessibilityNodeInfo root = getRootInActiveWindow();
         String packageName = root != null && root.getPackageName() != null ? root.getPackageName().toString() : "";
-        LiyaRemoteClient.report(this, task.id, status, result, packageName, collectScreenText());
+        String reportText = "Задание №" + task.id + ": "
+            + ("completed".equals(status) ? "выполнено. " : "failed".equals(status) ? "не выполнено. " : "нужна помощь. ")
+            + result;
         if (needsAttention) showAttentionNotification(result);
-        else if (!task.silent) speakBackground(result, continuousVoice);
-        if (task.silent && "completed".equals(status)) performGlobalAction(GLOBAL_ACTION_HOME);
-        remoteTaskRunning = false;
-        lastUserInteractionAt = System.currentTimeMillis();
+        else if (!task.silent) speakBackground(reportText, continuousVoice);
+        LiyaRemoteClient.report(this, task.id, status, reportText, packageName, collectScreenText(), saved -> {
+            if (!saved) showAttentionNotification("Не удалось сохранить отчёт по заданию №" + task.id + ". Лия повторит отправку при следующем запуске.");
+            if (task.silent && "completed".equals(status)) performGlobalAction(GLOBAL_ACTION_HOME);
+            remoteTaskRunning = false;
+            // The queue belongs to the accessibility service, not to ChatGPT. Take the next task immediately.
+            lastUserInteractionAt = 0L;
+            aiHandler.postDelayed(this::syncRemoteNow, 800L);
+        });
     }
 
     private void showAttentionNotification(String result) {
