@@ -20,6 +20,7 @@ final class LiyaRemoteClient {
     private static final String PREFS = "liya_vianer_link";
     private static final String TOKEN = "device_token";
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static boolean pollInFlight;
 
     static final class Task {
         final long id;
@@ -58,32 +59,53 @@ final class LiyaRemoteClient {
 
     static void poll(Context context, Consumer<Task> callback) {
         String token = prefs(context).getString(TOKEN, "");
-        if (token.isEmpty()) return;
+        if (token.isEmpty() || pollInFlight) return;
+        pollInFlight = true;
         new Thread(() -> {
             try {
+                flushPendingReport(context, token);
                 JSONObject response = post(new JSONObject().put("action", "poll").put("device_token", token), token);
                 JSONObject task = response.optJSONObject("task");
                 if (task != null) MAIN.post(() -> callback.accept(new Task(task)));
             } catch (Exception ignored) { }
+            finally { pollInFlight = false; }
         }).start();
     }
 
-    static void report(Context context, long taskId, String status, String result, String packageName, String screen) {
+    static void report(Context context, long taskId, String status, String result, String packageName, String screen,
+                       Consumer<Boolean> callback) {
         String token = prefs(context).getString(TOKEN, "");
-        if (token.isEmpty()) return;
-        new Thread(() -> {
-            try {
-                post(new JSONObject()
-                    .put("action", "report")
-                    .put("device_token", token)
-                    .put("task_id", taskId)
-                    .put("status", status)
-                    .put("result", result)
-                    .put("package_name", packageName)
-                    .put("screen", screen), token);
-            }
-            catch (Exception ignored) { }
-        }).start();
+        if (token.isEmpty()) { callback.accept(false); return; }
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("action", "report").put("device_token", token).put("task_id", taskId)
+                .put("status", status).put("result", result).put("package_name", packageName).put("screen", screen);
+        } catch (Exception ignored) { }
+        prefs(context).edit().putString("pending_report", payload.toString()).apply();
+        new Thread(() -> reportAttempt(context, token, payload, callback, 1)).start();
+    }
+
+    private static void reportAttempt(Context context, String token, JSONObject payload,
+                                      Consumer<Boolean> callback, int attempt) {
+        try {
+            post(payload, token);
+            prefs(context).edit().remove("pending_report").apply();
+            MAIN.post(() -> callback.accept(true));
+        } catch (Exception error) {
+            if (attempt < 3) {
+                try { Thread.sleep(1000L * attempt); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+                reportAttempt(context, token, payload, callback, attempt + 1);
+            } else MAIN.post(() -> callback.accept(false));
+        }
+    }
+
+    private static void flushPendingReport(Context context, String token) {
+        String saved = prefs(context).getString("pending_report", "");
+        if (saved.isEmpty()) return;
+        try {
+            post(new JSONObject(saved), token);
+            prefs(context).edit().remove("pending_report").apply();
+        } catch (Exception ignored) { }
     }
 
     private static JSONObject post(JSONObject body, String token) throws Exception {
