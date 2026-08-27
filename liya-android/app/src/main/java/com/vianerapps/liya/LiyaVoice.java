@@ -73,7 +73,11 @@ final class LiyaVoice {
             stopActivePlayer();
         }
         Context app = context.getApplicationContext();
-        new Thread(() -> {
+        new Thread(() -> requestCloudVoice(app, fallback, text, utteranceId, onDone, ownRequest, 1), "liya-cloud-voice").start();
+    }
+
+    private static void requestCloudVoice(Context app, TextToSpeech fallback, String text, String utteranceId,
+                                          Runnable onDone, int ownRequest, int attempt) {
             File audio = null;
             try {
                 URL configured = new URL(BuildConfig.LIYA_API_URL);
@@ -98,9 +102,13 @@ final class LiyaVoice {
                 MAIN.post(() -> playCloud(ownRequest, ready, fallback, text, utteranceId, onDone));
             } catch (Exception error) {
                 if (audio != null) audio.delete();
-                MAIN.post(() -> { if (ownRequest == requestNumber) speakFallback(fallback, text, utteranceId, onDone); });
+                if (attempt < 3 && ownRequest == requestNumber) {
+                    try { Thread.sleep(700L * attempt); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+                    requestCloudVoice(app, fallback, text, utteranceId, onDone, ownRequest, attempt + 1);
+                } else {
+                    MAIN.post(() -> { if (ownRequest == requestNumber) speakFallback(fallback, text, utteranceId, onDone); });
+                }
             }
-        }, "liya-cloud-voice").start();
     }
 
     private static void playCloud(int ownRequest, File audio, TextToSpeech fallback, String text, String utteranceId, Runnable onDone) {
