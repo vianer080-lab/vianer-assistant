@@ -14,6 +14,5 @@ export const masterHubApi = {
   health: () => request('/api/status'),
   status: () => request('/api/status'),
   analytics: (period = 1) => request(`/v1/analytics?days=${period}`),
-  publications: () => request('/v1/publications'),
-  triggerTelegramPost: () => request('/v1/actions/telegram/post', { method: 'POST' }),
+  publications: () => request('/v1/publication-queue'),
 };

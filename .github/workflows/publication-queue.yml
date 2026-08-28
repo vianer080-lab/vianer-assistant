@@ -1,0 +1,24 @@
+name: Process publication queue
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
+
+concurrency:
+  group: master-hub-publication-queue
+  cancel-in-progress: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish due items
+        env:
+          LIYA_DEVICE_TOKEN: ${{ secrets.LIYA_DEVICE_TOKEN }}
+        run: |
+          test -n "$LIYA_DEVICE_TOKEN"
+          curl --fail-with-body --silent --show-error \
+            --request POST "https://vianer-assistant.expo.app/api/publications/process" \
+            --header "Authorization: Bearer $LIYA_DEVICE_TOKEN" \
+            --header "Content-Type: application/json"
