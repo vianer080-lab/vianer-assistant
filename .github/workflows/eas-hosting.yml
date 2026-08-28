@@ -95,15 +95,26 @@ jobs:
             local title="$2"
             local description="$3"
             local result_file="$4"
-            curl --fail-with-body --silent --show-error \
-              --request POST "https://vianer-assistant.expo.app/api/youtube/upload" \
-              --header "Authorization: Bearer $LIYA_DEVICE_TOKEN" \
-              --header "Content-Type: video/mp4" \
-              --url-query "title=$title" \
-              --url-query "description=$description" \
-              --url-query "privacyStatus=public" \
-              --data-binary "@$file" > "$result_file"
-            grep -q '"ok":true' "$result_file"
+            local status
+            for attempt in $(seq 1 12); do
+              status=$(curl --silent --show-error \
+                --output "$result_file" \
+                --write-out "%{http_code}" \
+                --request POST "https://vianer-assistant.expo.app/api/youtube/upload" \
+                --header "Authorization: Bearer $LIYA_DEVICE_TOKEN" \
+                --header "Content-Type: video/mp4" \
+                --url-query "title=$title" \
+                --url-query "description=$description" \
+                --url-query "privacyStatus=public" \
+                --data-binary "@$file")
+              if [ "$status" = "200" ] && grep -q '"ok":true' "$result_file"; then
+                return 0
+              fi
+              echo "Upload endpoint not ready (HTTP $status), retry $attempt/12"
+              sleep 5
+            done
+            cat "$result_file"
+            return 1
           }
 
           upload_video \
