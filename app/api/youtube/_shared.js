@@ -66,3 +66,32 @@ export async function storeOAuth(token, metadata) {
   });
   return response.ok && (await response.json()) === true;
 }
+
+export async function loadOAuthToken() {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !process.env.LIYA_DEVICE_TOKEN) return null;
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/master_hub_get_oauth_token`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    body: JSON.stringify({ p_device_token: process.env.LIYA_DEVICE_TOKEN, p_service: 'youtube' }),
+  });
+  if (!response.ok) return null;
+  const result = await response.json();
+  return result?.authorized === true ? result.token : null;
+}
+
+export async function recordYouTubePublication({ id, title, url, status }) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !process.env.LIYA_DEVICE_TOKEN) return false;
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/master_hub_record_publication`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      p_device_token: process.env.LIYA_DEVICE_TOKEN,
+      p_platform: 'youtube',
+      p_external_id: id || '',
+      p_title: title || '',
+      p_url: url || '',
+      p_status: status,
+    }),
+  });
+  return response.ok && (await response.json())?.ok === true;
+}

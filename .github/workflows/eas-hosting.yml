@@ -88,6 +88,50 @@ jobs:
       - name: Deploy to EAS Hosting production
         run: eas deploy --prod --environment production --non-interactive
 
+      - name: Publish initial MasterPick Shorts
+        run: |
+          upload_video() {
+            local file="$1"
+            local title="$2"
+            local description="$3"
+            local result_file="$4"
+            curl --fail-with-body --silent --show-error \
+              --request POST "https://vianer-assistant.expo.app/api/youtube/upload" \
+              --header "Authorization: Bearer $LIYA_DEVICE_TOKEN" \
+              --header "Content-Type: video/mp4" \
+              --url-query "title=$title" \
+              --url-query "description=$description" \
+              --url-query "privacyStatus=public" \
+              --data-binary "@$file" > "$result_file"
+            grep -q '"ok":true' "$result_file"
+          }
+
+          upload_video \
+            "uploads/masterpick_temu_short.mp4" \
+            "Промокод Temu alj783927 — проверь скидку #Shorts" \
+            $'Проверь промокод alj783927 и актуальные условия Temu:\nhttps://temu.to/k/efotg114b1z\n\nПеред заказом проверьте цену и доставку по своему адресу. Партнёрская ссылка: MasterPick может получить комиссию без увеличения цены для покупателя.\n\n#temu #masterpick #скидки #реклама' \
+            "/tmp/temu-upload.json"
+
+          upload_video \
+            "uploads/masterpick_amazon_short.mp4" \
+            "Одна зарядка для iPhone, Watch и AirPods #Shorts" \
+            $'Беспроводная станция ANLMZ заряжает iPhone, Apple Watch и AirPods одновременно. В комплекте адаптер 18 Вт и USB-C.\n\nhttps://www.amazon.com/dp/B0BFCC18FS?tag=masterpickgeo-20\n\nПеред заказом проверьте актуальную цену и доставку. Партнёрская ссылка: MasterPick может получить комиссию без увеличения цены для покупателя.\n\n#amazon #masterpick #зарядка #apple #реклама' \
+            "/tmp/amazon-upload.json"
+
+          upload_video \
+            "uploads/masterpick_aliexpress_short.mp4" \
+            "Полезные товары AliExpress — подборка MasterPick #Shorts" \
+            $'Открыть подборку AliExpress:\nhttps://ali.click/bogoj1m\n\nЦены и наличие меняются — проверяйте перед заказом. Партнёрская ссылка: MasterPick может получить комиссию без увеличения цены для покупателя.\n\n#aliexpress #masterpick #полезныетовары #реклама' \
+            "/tmp/aliexpress-upload.json"
+
+          python3 - <<'PY'
+          import json
+          for name in ('temu', 'amazon', 'aliexpress'):
+              with open(f'/tmp/{name}-upload.json', encoding='utf-8') as handle:
+                  result = json.load(handle)
+              print(f'{name}: {result.get("url", "missing-url")}')
+          PY
+
       - name: Verify Liya neural voice
         run: |
           status=$(curl --silent --show-error --output /tmp/liya-voice.mp3 --write-out "%{http_code}" \
