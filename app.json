@@ -8,7 +8,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-document-picker",
+      "expo-secure-store"
     ],
     "web": {
       "output": "server",

@@ -11,7 +11,10 @@ function authorized(request) {
 }
 
 async function loadMedia(url) {
-  const response = await fetch(url, { redirect: 'follow' });
+  const storageHeaders = url.startsWith(`${process.env.SUPABASE_URL}/storage/`)
+    ? { apikey: process.env.SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${process.env.SUPABASE_PUBLISHABLE_KEY}` }
+    : {};
+  const response = await fetch(url, { redirect: 'follow', headers: storageHeaders });
   if (!response.ok) throw new Error(`media_download_${response.status}`);
   const declared = Number(response.headers.get('content-length') || 0);
   if (declared > MAX_VIDEO_BYTES) throw new Error('media_too_large');
