@@ -27,6 +27,7 @@ export default function Socials() {
   const [youtube, setYoutube] = useState({ loading: true, configured: false, connected: false, channel: null });
   const [instagram, setInstagram] = useState({ loading: true, configured: false, connected: false, account: null });
   const [facebook, setFacebook] = useState({ loading: true, configured: false, connected: false, page: null });
+  const [pinterest, setPinterest] = useState({ loading: true, configured: false, connected: false, account: null });
   const [opening, setOpening] = useState(null);
 
   const refreshYoutube = useCallback(async () => {
@@ -56,19 +57,30 @@ export default function Socials() {
     }
   }, []);
 
+  const refreshPinterest = useCallback(async () => {
+    try {
+      const data = await loadHealth('/api/pinterest/health');
+      setPinterest({ loading: false, ...data });
+    } catch {
+      setPinterest((current) => ({ ...current, loading: false, error: true }));
+    }
+  }, []);
+
   useEffect(() => {
     refreshYoutube();
     refreshInstagram();
     refreshFacebook();
+    refreshPinterest();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         refreshYoutube();
         refreshInstagram();
         refreshFacebook();
+        refreshPinterest();
       }
     });
     return () => subscription.remove();
-  }, [refreshYoutube, refreshInstagram, refreshFacebook]);
+  }, [refreshYoutube, refreshInstagram, refreshFacebook, refreshPinterest]);
 
   const connect = useCallback(async (service, url, label) => {
     if (opening) return;
@@ -122,10 +134,15 @@ export default function Socials() {
     },
     {
       name: 'Pinterest',
-      status: 'Аккаунт создан',
-      detail: 'Открывает существующий аккаунт Pinterest. Автопубликацию подключим через API.',
-      actionLabel: 'Открыть Pinterest →',
-      action: () => openConnection('https://www.pinterest.com/login/', 'Pinterest'),
+      status: pinterest.loading ? 'Проверка…' : pinterest.error ? 'Нет связи' : pinterest.connected ? 'Подключён' : pinterest.configured ? 'Готов к подключению' : 'Нужна настройка Pinterest',
+      detail: pinterest.connected
+        ? `Аккаунт: ${pinterest.account?.username || 'Pinterest'}`
+        : 'Подключение бизнес-аккаунта для автоматической публикации пинов',
+      active: pinterest.connected,
+      actionLabel: pinterest.connected ? 'Обновить статус →' : opening === 'pinterest' ? 'Открываю…' : 'Подключить Pinterest →',
+      action: pinterest.connected ? refreshPinterest : pinterest.configured
+        ? () => connect('pinterest', `${API_URL}/api/pinterest/connect`, 'Pinterest')
+        : () => Alert.alert('Pinterest', 'Сначала нужно создать приложение Pinterest и добавить его ключи.'),
     },
     {
       name: 'WhatsApp Business',
@@ -145,7 +162,7 @@ export default function Socials() {
       <Text style={s.detail}>{n.detail}</Text>
       <Text style={s.open}>{n.actionLabel}</Text>
     </TouchableOpacity>)}
-    <View style={s.plan}><Text style={s.planTitle}>Обновление подключения</Text><Text style={s.planText}>Все карточки теперь работают как кнопки. Сначала подключаем YouTube, затем Instagram, Pinterest и WhatsApp Business.</Text></View>
+    <View style={s.plan}><Text style={s.planTitle}>Подключение каналов</Text><Text style={s.planText}>YouTube, Facebook, Instagram и Pinterest подключаются через официальные API. WhatsApp Business используется отдельно для сообщений клиентам.</Text></View>
   </ScrollView></View>;
 }
 
