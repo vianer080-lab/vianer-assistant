@@ -28,6 +28,8 @@ jobs:
       PINTEREST_APP_ID: ${{ secrets.PINTEREST_APP_ID }}
       PINTEREST_APP_SECRET: ${{ secrets.PINTEREST_APP_SECRET }}
       PINTEREST_REDIRECT_URI: https://vianer-assistant.expo.app/api/pinterest/callback
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
       SUPABASE_URL: https://ceozpugxrwgblkwtxiew.supabase.co
       SUPABASE_PUBLISHABLE_KEY: sb_publishable_1AhIOiv0elKK_2wWnaLs6w_z8lWl0M2
     steps:
@@ -65,6 +67,8 @@ jobs:
           eas env:delete production --variable-name PINTEREST_APP_ID --scope project --non-interactive || true
           eas env:delete production --variable-name PINTEREST_APP_SECRET --scope project --non-interactive || true
           eas env:delete production --variable-name PINTEREST_REDIRECT_URI --scope project --non-interactive || true
+          eas env:delete production --variable-name TELEGRAM_BOT_TOKEN --scope project --non-interactive || true
+          eas env:delete production --variable-name TELEGRAM_CHANNEL_ID --scope project --non-interactive || true
           eas env:delete production --variable-name SUPABASE_URL --scope project --non-interactive || true
           eas env:delete production --variable-name SUPABASE_PUBLISHABLE_KEY --scope project --non-interactive || true
           eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility sensitive --non-interactive
@@ -73,6 +77,10 @@ jobs:
             eas env:set --name YOUTUBE_CLIENT_ID --value "$YOUTUBE_CLIENT_ID" --environment production --visibility sensitive --non-interactive
             eas env:set --name YOUTUBE_CLIENT_SECRET --value "$YOUTUBE_CLIENT_SECRET" --environment production --visibility sensitive --non-interactive
             eas env:set --name YOUTUBE_REDIRECT_URI --value "$YOUTUBE_REDIRECT_URI" --environment production --visibility plaintext --non-interactive
+          fi
+          if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+            eas env:set --name TELEGRAM_BOT_TOKEN --value "$TELEGRAM_BOT_TOKEN" --environment production --visibility sensitive --non-interactive
+            eas env:set --name TELEGRAM_CHANNEL_ID --value "${TELEGRAM_CHANNEL_ID:-@masterpick_georgia}" --environment production --visibility plaintext --non-interactive
           fi
           if [ -n "$PINTEREST_APP_ID" ] && [ -n "$PINTEREST_APP_SECRET" ]; then
             eas env:set --name PINTEREST_APP_ID --value "$PINTEREST_APP_ID" --environment production --visibility sensitive --non-interactive

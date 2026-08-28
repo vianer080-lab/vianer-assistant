@@ -3,3 +3,6 @@
 !.env.example
 *.jks
 *.keystore
+node_modules/
+dist/
+.expo/
