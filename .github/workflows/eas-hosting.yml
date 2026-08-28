@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - "app/api/**"
+      - "app/v1/**"
+      - "app/go/**"
       - "app/privacy.js"
       - "app/terms.js"
       - ".github/workflows/eas-hosting.yml"
@@ -23,6 +25,9 @@ jobs:
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REDIRECT_URI: https://vianer-assistant.expo.app/api/youtube/callback
+      PINTEREST_APP_ID: ${{ secrets.PINTEREST_APP_ID }}
+      PINTEREST_APP_SECRET: ${{ secrets.PINTEREST_APP_SECRET }}
+      PINTEREST_REDIRECT_URI: https://vianer-assistant.expo.app/api/pinterest/callback
       SUPABASE_URL: https://ceozpugxrwgblkwtxiew.supabase.co
       SUPABASE_PUBLISHABLE_KEY: sb_publishable_1AhIOiv0elKK_2wWnaLs6w_z8lWl0M2
     steps:
@@ -57,6 +62,9 @@ jobs:
           eas env:delete production --variable-name YOUTUBE_CLIENT_ID --scope project --non-interactive || true
           eas env:delete production --variable-name YOUTUBE_CLIENT_SECRET --scope project --non-interactive || true
           eas env:delete production --variable-name YOUTUBE_REDIRECT_URI --scope project --non-interactive || true
+          eas env:delete production --variable-name PINTEREST_APP_ID --scope project --non-interactive || true
+          eas env:delete production --variable-name PINTEREST_APP_SECRET --scope project --non-interactive || true
+          eas env:delete production --variable-name PINTEREST_REDIRECT_URI --scope project --non-interactive || true
           eas env:delete production --variable-name SUPABASE_URL --scope project --non-interactive || true
           eas env:delete production --variable-name SUPABASE_PUBLISHABLE_KEY --scope project --non-interactive || true
           eas env:set --name OPENAI_API_KEY --value "$OPENAI_API_KEY" --environment production --visibility sensitive --non-interactive
@@ -65,6 +73,11 @@ jobs:
             eas env:set --name YOUTUBE_CLIENT_ID --value "$YOUTUBE_CLIENT_ID" --environment production --visibility sensitive --non-interactive
             eas env:set --name YOUTUBE_CLIENT_SECRET --value "$YOUTUBE_CLIENT_SECRET" --environment production --visibility sensitive --non-interactive
             eas env:set --name YOUTUBE_REDIRECT_URI --value "$YOUTUBE_REDIRECT_URI" --environment production --visibility plaintext --non-interactive
+          fi
+          if [ -n "$PINTEREST_APP_ID" ] && [ -n "$PINTEREST_APP_SECRET" ]; then
+            eas env:set --name PINTEREST_APP_ID --value "$PINTEREST_APP_ID" --environment production --visibility sensitive --non-interactive
+            eas env:set --name PINTEREST_APP_SECRET --value "$PINTEREST_APP_SECRET" --environment production --visibility sensitive --non-interactive
+            eas env:set --name PINTEREST_REDIRECT_URI --value "$PINTEREST_REDIRECT_URI" --environment production --visibility plaintext --non-interactive
           fi
           eas env:set --name SUPABASE_URL --value "$SUPABASE_URL" --environment production --visibility plaintext --non-interactive
           eas env:set --name SUPABASE_PUBLISHABLE_KEY --value "$SUPABASE_PUBLISHABLE_KEY" --environment production --visibility plaintext --non-interactive
