@@ -31,7 +31,7 @@ export async function GET(request) {
     const message = (await tokenResponse.text()).replace(/[<>&"]/g, '').slice(0, 300);
     return new Response(`Pinterest token exchange failed: ${message}`, { status: 502 });
   }
-  const token = await tokenResponse.json();
+  const token = { ...(await tokenResponse.json()), stored_at: new Date().toISOString() };
   const profileResponse = await fetch('https://api.pinterest.com/v5/user_account', {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
