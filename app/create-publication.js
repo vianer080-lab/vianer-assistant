@@ -6,13 +6,13 @@ import { clearDeviceToken,getDeviceToken,pairDevice } from '../src/deviceAuth';
 import { masterHubApi } from '../src/api';
 
 const modes=[{id:'now',label:'Сейчас'},{id:'hour',label:'Через час'},{id:'tomorrow',label:'Завтра в 11:00'}];
-const platformOptions=[{id:'youtube',label:'YouTube'},{id:'pinterest',label:'Pinterest'},{id:'telegram',label:'Telegram'}];
+const platformOptions=[{id:'youtube',label:'YouTube'},{id:'instagram',label:'Instagram Reels'},{id:'pinterest',label:'Pinterest'},{id:'telegram',label:'Telegram'}];
 function scheduledAt(mode){const d=new Date();if(mode==='hour')d.setHours(d.getHours()+1);if(mode==='tomorrow'){d.setDate(d.getDate()+1);d.setHours(11,0,0,0)}return d.toISOString()}
 
 export default function CreatePublication(){
  const [token,setToken]=useState(null),[checking,setChecking]=useState(true),[code,setCode]=useState(''),[pairing,setPairing]=useState(false);
  const [video,setVideo]=useState(null),[title,setTitle]=useState(''),[description,setDescription]=useState(''),[link,setLink]=useState(''),[mode,setMode]=useState('now'),[privacy,setPrivacy]=useState('public'),[sending,setSending]=useState(false);
- const [platforms,setPlatforms]=useState(['youtube','pinterest','telegram']),[boards,setBoards]=useState([]),[boardId,setBoardId]=useState('');
+ const [platforms,setPlatforms]=useState(['youtube','instagram','pinterest','telegram']),[boards,setBoards]=useState([]),[boardId,setBoardId]=useState('');
  useEffect(()=>{getDeviceToken().then(setToken).finally(()=>setChecking(false))},[]);
  const connect=async()=>{try{setPairing(true);setToken(await pairDevice(code));setCode('')}catch(e){Alert.alert('Подключение',e.message)}finally{setPairing(false)}};
  const choose=async()=>{const r=await DocumentPicker.getDocumentAsync({type:'video/mp4',copyToCacheDirectory:true,multiple:false});if(!r.canceled)setVideo(r.assets[0])};

@@ -38,7 +38,7 @@ export async function GET(request) {
   );
   if (!profileResponse.ok) return new Response('Could not verify the Instagram account.', { status: 502 });
   const profile = await profileResponse.json();
-  const stored = await store({ ...token, access_token: accessToken }, profile);
+  const stored = await store({ ...shortToken, ...token, access_token: accessToken, stored_at: new Date().toISOString() }, profile);
   if (!stored) return new Response('The Instagram permission could not be saved securely.', { status: 502 });
   return new Response(
     `<!doctype html><html lang="ru"><meta name="viewport" content="width=device-width"><body style="font-family:sans-serif;background:#0b1220;color:white;padding:32px"><h2>Instagram подключён</h2><p>Аккаунт @${String(profile.username || 'Instagram').replace(/[<>&"]/g, '')} подключён к Master Hub. Можно закрыть страницу.</p></body></html>`,

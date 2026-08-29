@@ -9,7 +9,7 @@ export async function POST(request){
  if(!token)return noStoreJson({ok:false,error:'unauthorized'},401);
  try{
   const form=await request.formData();const file=form.get('video');const title=String(form.get('title')||'').trim().slice(0,100);const description=String(form.get('description')||'').slice(0,5000);const privacyStatus=String(form.get('privacyStatus')||'private');const scheduledAt=new Date(String(form.get('scheduledAt')||new Date().toISOString()));
-  const allowed=new Set(['youtube','pinterest','telegram']);let platforms=[];try{platforms=JSON.parse(String(form.get('platforms')||'["youtube"]'))}catch{}
+  const allowed=new Set(['youtube','instagram','pinterest','telegram']);let platforms=[];try{platforms=JSON.parse(String(form.get('platforms')||'["youtube"]'))}catch{}
   platforms=[...new Set(Array.isArray(platforms)?platforms.filter(x=>allowed.has(x)):[])];
   const destinationUrl=String(form.get('destinationUrl')||'').trim();const boardId=String(form.get('boardId')||'').trim();
   if(!file||typeof file.arrayBuffer!=='function'||!title||!platforms.length||!Number.isFinite(scheduledAt.getTime())||((platforms.includes('pinterest')||platforms.includes('telegram'))&&!/^https:\/\//i.test(destinationUrl)))return noStoreJson({ok:false,error:'invalid_publication'},400);

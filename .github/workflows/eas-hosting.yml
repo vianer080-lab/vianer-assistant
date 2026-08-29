@@ -28,6 +28,9 @@ jobs:
       PINTEREST_APP_ID: ${{ secrets.PINTEREST_APP_ID }}
       PINTEREST_APP_SECRET: ${{ secrets.PINTEREST_APP_SECRET }}
       PINTEREST_REDIRECT_URI: https://vianer-assistant.expo.app/api/pinterest/callback
+      INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+      INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+      INSTAGRAM_REDIRECT_URI: https://vianer-assistant.expo.app/api/instagram/callback
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
       SUPABASE_URL: https://ceozpugxrwgblkwtxiew.supabase.co
@@ -67,6 +70,9 @@ jobs:
           eas env:delete production --variable-name PINTEREST_APP_ID --scope project --non-interactive || true
           eas env:delete production --variable-name PINTEREST_APP_SECRET --scope project --non-interactive || true
           eas env:delete production --variable-name PINTEREST_REDIRECT_URI --scope project --non-interactive || true
+          eas env:delete production --variable-name INSTAGRAM_APP_ID --scope project --non-interactive || true
+          eas env:delete production --variable-name INSTAGRAM_APP_SECRET --scope project --non-interactive || true
+          eas env:delete production --variable-name INSTAGRAM_REDIRECT_URI --scope project --non-interactive || true
           eas env:delete production --variable-name TELEGRAM_BOT_TOKEN --scope project --non-interactive || true
           eas env:delete production --variable-name TELEGRAM_CHANNEL_ID --scope project --non-interactive || true
           eas env:delete production --variable-name SUPABASE_URL --scope project --non-interactive || true
@@ -86,6 +92,11 @@ jobs:
             eas env:set --name PINTEREST_APP_ID --value "$PINTEREST_APP_ID" --environment production --visibility sensitive --non-interactive
             eas env:set --name PINTEREST_APP_SECRET --value "$PINTEREST_APP_SECRET" --environment production --visibility sensitive --non-interactive
             eas env:set --name PINTEREST_REDIRECT_URI --value "$PINTEREST_REDIRECT_URI" --environment production --visibility plaintext --non-interactive
+          fi
+          if [ -n "$INSTAGRAM_APP_ID" ] && [ -n "$INSTAGRAM_APP_SECRET" ]; then
+            eas env:set --name INSTAGRAM_APP_ID --value "$INSTAGRAM_APP_ID" --environment production --visibility sensitive --non-interactive
+            eas env:set --name INSTAGRAM_APP_SECRET --value "$INSTAGRAM_APP_SECRET" --environment production --visibility sensitive --non-interactive
+            eas env:set --name INSTAGRAM_REDIRECT_URI --value "$INSTAGRAM_REDIRECT_URI" --environment production --visibility plaintext --non-interactive
           fi
           eas env:set --name SUPABASE_URL --value "$SUPABASE_URL" --environment production --visibility plaintext --non-interactive
           eas env:set --name SUPABASE_PUBLISHABLE_KEY --value "$SUPABASE_PUBLISHABLE_KEY" --environment production --visibility plaintext --non-interactive

@@ -55,3 +55,15 @@ export async function store(token, metadata) {
   });
   return response.ok && (await response.json()) === true;
 }
+
+export async function loadConnection() {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !process.env.LIYA_DEVICE_TOKEN) return null;
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/master_hub_get_oauth_token`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    body: JSON.stringify({ p_device_token: process.env.LIYA_DEVICE_TOKEN, p_service: 'instagram' }),
+  });
+  if (!response.ok) return null;
+  const result = await response.json();
+  return result?.authorized === true ? { token: result.token, metadata: result.metadata || {} } : null;
+}

@@ -1,6 +1,7 @@
 import { callMasterHubRpc, noStoreJson } from '../_masterHubData';
 import { MAX_VIDEO_BYTES, publishYouTubeVideo } from '../youtube/_publisher';
 import { publishPinterestVideo } from '../pinterest/_publisher';
+import { publishInstagramReel } from '../instagram/_publisher';
 import { publishTelegramVideo } from '../telegram/_publisher';
 
 function authorized(request) {
@@ -40,6 +41,8 @@ export async function POST(request) {
         description: job.description, privacyStatus: job.privacy_status });
       else if (job.platform === 'pinterest') result = await publishPinterestVideo({ bytes, title: job.title,
         description: job.description, destinationUrl: options.destination_url, boardId: options.board_id });
+      else if (job.platform === 'instagram') result = await publishInstagramReel({ bytes, title: job.title,
+        description: job.description });
       else if (job.platform === 'telegram') result = await publishTelegramVideo({ bytes, title: job.title,
         description: job.description, destinationUrl: options.destination_url });
       else throw new Error(`platform_not_connected_${job.platform}`);
