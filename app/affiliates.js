@@ -2,9 +2,10 @@ import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 
 const programs = [
   { name: 'Amazon US', status: 'Активна', detail: 'Основной источник · 5 дней в неделю', ok: true },
-  { name: 'AliExpress RU&CIS', status: 'Регистрация не завершена', detail: 'Mitgo/Admitad · публикации отключены', ok: false, pending: true },
+  { name: 'AliExpress RU&CIS', status: 'Ссылка сломана', detail: 'Одобрена, но сохранённая ссылка зацикливается · публикации отключены', ok: false, pending: true },
   { name: 'Joom', status: 'Отклонена', detail: 'Ссылки не публикуются', ok: false },
-  { name: 'Temu', status: 'Не подключена', detail: 'Партнёрская ссылка не подтверждена', pending: true },
+  { name: 'Impact', status: 'Marketplace отклонён', detail: 'Аккаунт 7643000 · только прямые приглашения брендов', ok: false, pending: true },
+  { name: 'Temu', status: 'Активна', detail: 'Партнёрская ссылка проверена 02.09.2026', ok: true },
 ];
 
 export default function AffiliatesScreen() {
