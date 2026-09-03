@@ -1,3 +1,6 @@
+import { fetch as expoFetch } from 'expo/fetch';
+import { File } from 'expo-file-system';
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_MASTER_HUB_API_URL || 'https://vianer-assistant.expo.app';
 
 async function request(path, options = {}) {
@@ -18,9 +21,10 @@ export const masterHubApi = {
   pinterestBoards: (token) => request('/api/pinterest/boards', { headers: { Authorization: `Bearer ${token}` } }),
   createPublication: async ({ token, video, title, description, destinationUrl, boardId, platforms, privacyStatus, scheduledAt }) => {
     const form=new FormData();
-    form.append('video',{uri:video.uri,name:video.name||'video.mp4',type:'video/mp4'});
+    const videoFile = new File(video.uri);
+    form.append('video', videoFile);
     form.append('title',title);form.append('description',description);form.append('destinationUrl',destinationUrl||'');form.append('boardId',boardId||'');form.append('platforms',JSON.stringify(platforms||['youtube']));form.append('privacyStatus',privacyStatus);form.append('scheduledAt',scheduledAt);
-    const response=await fetch(`${API_BASE_URL}/api/publications/create`,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:form});
+    const response=await expoFetch(`${API_BASE_URL}/api/publications/create`,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:form});
     const data=await response.json().catch(()=>({}));if(!response.ok||data.ok===false)throw new Error(data.error||`HTTP ${response.status}`);return{ok:true,configured:true,data};
   },
 };
