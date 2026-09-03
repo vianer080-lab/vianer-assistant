@@ -5,8 +5,8 @@ const API_URL = 'https://vianer-assistant.expo.app';
 
 async function openConnection(url, label) {
   try {
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) throw new Error('unsupported_url');
+    // Android can report false for installed apps when their URL scheme is not
+    // declared in package visibility. Opening the HTTPS app link directly is reliable.
     await Linking.openURL(url);
     return true;
   } catch (error) {
@@ -103,8 +103,8 @@ export default function Socials() {
       status: youtube.loading ? 'Проверка…' : youtube.error ? 'Нет связи' : youtube.connected ? 'Подключён' : youtube.configured ? 'Готов к подключению' : 'Нужна настройка',
       detail: youtube.connected ? `Канал: ${youtube.channel?.title || 'YouTube'}` : 'Нажмите и подтвердите доступ к нужному каналу Google',
       active: youtube.connected,
-      actionLabel: youtube.connected ? 'Обновить статус →' : opening === 'youtube' ? 'Открываю…' : 'Подключить YouTube →',
-      action: youtube.connected ? refreshYoutube : youtube.configured
+      actionLabel: opening === 'youtube' ? 'Открываю…' : youtube.connected ? 'Переподключить YouTube →' : 'Подключить YouTube →',
+      action: youtube.configured
         ? () => connect('youtube', `${API_URL}/api/youtube/connect`, 'YouTube')
         : () => Alert.alert('YouTube', 'Сервер подключения YouTube ещё не настроен.'),
     },
@@ -149,7 +149,7 @@ export default function Socials() {
       status: 'Установлен на телефоне',
       detail: 'Открывает WhatsApp Business. API-подключение будет отдельным этапом.',
       actionLabel: 'Открыть WhatsApp Business →',
-      action: () => openConnection('https://wa.me/', 'WhatsApp Business'),
+      action: () => openConnection('https://wa.me/?text=MasterPick%20Georgia', 'WhatsApp Business'),
     },
   ];
 
