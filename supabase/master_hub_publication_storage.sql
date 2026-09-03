@@ -64,7 +64,7 @@ create policy "master_hub_granted_video_read" on storage.objects
 for select to anon using(
   bucket_id='master-hub-publications'
   and private.master_hub_storage_grant_valid(name)
-  and storage.allow_any_operation(array['object.get_authenticated'])
+  and storage.allow_any_operation(array['object.get_authenticated_info','object.get_authenticated'])
 );
 
 notify pgrst, 'reload schema';
