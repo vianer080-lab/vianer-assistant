@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vianer Assistant",
     "slug": "vianer-assistant",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "orientation": "portrait",
     "scheme": "vianerassistant",
     "userInterfaceStyle": "automatic",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.vianerapps.vianerassistant",
-      "versionCode": 3
+      "versionCode": 4
     },
     "extra": {
       "eas": {
