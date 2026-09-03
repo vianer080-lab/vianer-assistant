@@ -29,7 +29,7 @@ async function loadMedia(url) {
 export async function POST(request) {
   if (!authorized(request)) return noStoreJson({ ok: false, error: 'unauthorized' }, 401);
   const outcomes = [];
-  for (let index = 0; index < 3; index += 1) {
+  // One publication per invocation keeps the serverless worker below its\n  // outbound subrequest limit. The scheduled queue drains subsequent jobs.\n  for (let index = 0; index < 1; index += 1) {
     const claimed = await callMasterHubRpc('master_hub_claim_publication', {});
     const job = claimed?.job;
     if (!job) break;
