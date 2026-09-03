@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "vianerassistant",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "plugins": [
       "expo-router",
       "expo-document-picker",
