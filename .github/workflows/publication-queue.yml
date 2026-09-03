@@ -27,4 +27,4 @@ jobs:
             --header "Authorization: Bearer $LIYA_DEVICE_TOKEN" \
             --header "Content-Type: application/json"
 
-# Queue processor manually retriggered after Android upload fix.
+# Queue processor manually retriggered after Android upload and storage fixes.
